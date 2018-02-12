@@ -1,0 +1,95 @@
+.App {
+  text-align: center;
+  font-family: Arial, Helvetica, sans-serif
+}
+
+.App-logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 80px;
+}
+
+.App-header {
+  background-color: forestgreen;
+  height: 38px;
+  padding: 5px;
+  color: white;
+  display: flex;
+}
+
+.middle {
+  margin-left:auto;
+  margin-right:auto;
+  width: 800px;
+  display: flex;
+}
+
+.App-intro {
+  font-size: large;
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.input {
+  width: 300px;
+  margin-left: 100px;
+  border:transparent;
+  font-size: 20px;
+}
+
+.query {
+  width: 80px;
+  margin-left: 20px;
+  background-color: darkgreen;
+  border:transparent;
+  color:white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.chart {
+  margin-top: 15px;
+}
+
+.error {
+  color: red;
+  font-size: 25px;
+}
+
+.mainDiv {
+  width: 800px;
+  display: flex;
+  margin-left:auto;
+  margin-right:auto;
+  flex-direction: column;
+}
+
+.title {
+  color: forestgreen;
+  margin: 10px;
+}
+
+.author {
+  color: deepskyblue;
+  bottom: 30px;
+  left:50%;
+  position: fixed;
+  width: 200px;
+  margin-left: -100px;
+  font-size: small;
+}
+
+.headerTitle {
+  text-align: left;
+  margin-left: 30px;
+  font-weight: bold;
+  line-height: 38px;
+}
+
+.leftNav {
+  width: 250px;
+  margin-top: 30px;
+  margin-left: 10px;
+}

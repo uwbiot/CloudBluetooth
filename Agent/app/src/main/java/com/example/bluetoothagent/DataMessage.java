@@ -1,0 +1,50 @@
+package com.example.bluetoothagent;
+
+import android.util.Base64;
+
+import org.json.JSONObject;
+
+/**
+ * Created by wei on 9/28/17.
+ */
+
+public class DataMessage {
+    public enum MessageType {
+        READ,
+        WRITE
+    }
+    public MessageType type;
+    public String uuid;
+    public byte[] bytes;
+    public String macAddress;
+    public String requestID;
+
+    public DataMessage(String message) {
+        try {
+            JSONObject json = new JSONObject(message);
+            type = MessageType.valueOf(json.getString("messageType"));
+            this.uuid = json.getString("uuid");
+            this.macAddress = json.getString("macAddress");
+            this.requestID = json.getString("requestID");
+           // this.bytes = json.getString("bytes").getBytes();
+            if(!json.isNull("bytes")) {
+                this.bytes = Base64.decode(json.getString("bytes"), Base64.DEFAULT);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    public static MessageType getMessageType(String dataJSON) {
+        MessageType type = null;
+        try {
+            JSONObject json = new JSONObject(dataJSON);
+            type = MessageType.valueOf(json.getString("messageType"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return type;
+    }
+
+
+}

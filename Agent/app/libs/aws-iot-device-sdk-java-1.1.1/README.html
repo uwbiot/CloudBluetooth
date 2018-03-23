@@ -1,0 +1,430 @@
+<h1>
+<a id="user-content-aws-iot-device-sdk-for-java" class="anchor" href="#aws-iot-device-sdk-for-java" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>AWS IoT Device SDK for Java</h1>
+<p>The <strong>AWS IoT Device SDK for Java</strong> enables Java developers to access the AWS
+IoT Platform through <a href="http://docs.aws.amazon.com/iot/latest/developerguide/protocols.html">MQTT or MQTT over the WebSocket protocol</a>.
+The SDK is built with <a href="http://docs.aws.amazon.com/iot/latest/developerguide/iot-thing-shadows.html">AWS IoT device shadow support</a>, providing
+access to thing shadows (sometimes referred to as device shadows) using shadow methods, including GET, UPDATE, and DELETE.
+It also supports a simplified shadow access model, which allows developers to
+exchange data with their shadows by just using getter and setter methods without
+having to serialize or deserialize any JSON documents.</p>
+<p>To get started, use the Maven repository or download the <a href="https://s3.amazonaws.com/aws-iot-device-sdk-java/aws-iot-device-sdk-java-LATEST.zip">latest JAR file</a>.</p>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#install-the-sdk">Install the SDK</a></li>
+<li><a href="#use-the-sdk">Use the SDK</a></li>
+<li><a href="#sample-applications">Sample Applications</a></li>
+<li><a href="#api-documentation">API Documentation</a></li>
+<li><a href="#license">License</a></li>
+<li><a href="#support">Support</a></li>
+</ul>
+<h2>
+<a id="user-content-overview" class="anchor" href="#overview" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Overview</h2>
+<p>This document provides instructions for installing and configuring the AWS
+IoT device SDK for Java. It also includes some examples that demonstrate the use of different
+APIs.</p>
+<h3>
+<a id="user-content-mqtt-connection-types" class="anchor" href="#mqtt-connection-types" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>MQTT Connection Types</h3>
+<p>The SDK is built on top of the <a href="https://eclipse.org/paho/clients/java/">Paho MQTT Java client library</a>.
+Developers can choose from two types of connections to connect to
+the AWS IoT service:</p>
+<ul>
+<li>MQTT (over TLS 1.2) with X.509 certificate-based mutual authentication</li>
+<li>MQTT over WebSocket with AWS Signature Version 4 authentication</li>
+</ul>
+<p>For MQTT over TLS (port 8883), a valid certificate and private key are required
+for authentication. For MQTT over WebSocket (port 443), a valid AWS Identity and Access Management (IAM)
+access key ID and secret access key pair is required for authentication.</p>
+<h3>
+<a id="user-content-thing-shadows" class="anchor" href="#thing-shadows" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Thing Shadows</h3>
+<p>A thing shadow represents the cloud counterpart of a physical device or thing.
+Although a device is not always online, its thing shadow is. A thing shadow
+stores data in and out of the device in a JSON based document. When the device is offline, its shadow document is still
+accessible to the application. When the device comes back online,
+the thing shadow publishes the delta to the device (which the device didn't
+see while it was offline).</p>
+<p>The SDK implements the protocol for applications to retrieve, update, and
+delete shadow documents mentioned <a href="http://docs.aws.amazon.com/iot/latest/developerguide/iot-thing-shadows.html">here</a>.
+When you use the simplified access model, you have the option to enable strict document versioning. To reduce the overhead of subscribing to shadow topics
+for each method requested, the SDK automatically subscribes to all of the method
+topics when a connection is established.</p>
+<h4>
+<a id="user-content-simplified-shadow-access-model" class="anchor" href="#simplified-shadow-access-model" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Simplified Shadow Access Model</h4>
+<p>Unlike the shadow methods, which operate on JSON documents, the simplified
+shadow access model allows developers to access their shadows with getter and
+setter methods.</p>
+<p>To use this feature, you must extend the device class <code>AWSIotDevice</code>,
+use the annotation <code>AWSIotDeviceProperty</code> to mark class member variables to be
+managed by the SDK, and provide getter and setter methods for accessing these
+variables. The getter methods will be used by the SDK to report to the shadow
+periodically. The setter methods will be invoked whenever there is a change
+to the desired state of the shadow document. For more information, see <a href="#use-the-sdk">Use the SDK</a>
+later in this document.</p>
+<h2>
+<a id="user-content-install-the-sdk" class="anchor" href="#install-the-sdk" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Install the SDK</h2>
+<h3>
+<a id="user-content-minimum-requirements" class="anchor" href="#minimum-requirements" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Minimum Requirements</h3>
+<p>To use the SDK, you will need Java 1.7+.</p>
+<h3>
+<a id="user-content-install-the-sdk-using-maven" class="anchor" href="#install-the-sdk-using-maven" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Install the SDK Using Maven</h3>
+<p>The recommended way to use the AWS IoT Device SDK for Java in your project is
+to consume it from Maven. Simply add the following dependency to the POM file
+of your Maven project.</p>
+<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">dependencies</span>&gt;
+  &lt;<span class="pl-ent">dependency</span>&gt;
+    &lt;<span class="pl-ent">groupId</span>&gt;com.amazonaws&lt;/<span class="pl-ent">groupId</span>&gt;
+    &lt;<span class="pl-ent">artifactId</span>&gt;aws-iot-device-sdk-java&lt;/<span class="pl-ent">artifactId</span>&gt;
+    &lt;<span class="pl-ent">version</span>&gt;1.1.1&lt;/<span class="pl-ent">version</span>&gt;
+  &lt;/<span class="pl-ent">dependency</span>&gt;
+&lt;/<span class="pl-ent">dependencies</span>&gt;</pre></div>
+<p>The sample applications included with the SDK can also be installed using the following dependency definition.</p>
+<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">dependencies</span>&gt;
+  &lt;<span class="pl-ent">dependency</span>&gt;
+    &lt;<span class="pl-ent">groupId</span>&gt;com.amazonaws&lt;/<span class="pl-ent">groupId</span>&gt;
+    &lt;<span class="pl-ent">artifactId</span>&gt;aws-iot-device-sdk-java-samples&lt;/<span class="pl-ent">artifactId</span>&gt;
+    &lt;<span class="pl-ent">version</span>&gt;1.1.1&lt;/<span class="pl-ent">version</span>&gt;
+  &lt;/<span class="pl-ent">dependency</span>&gt;
+&lt;/<span class="pl-ent">dependencies</span>&gt;</pre></div>
+<h3>
+<a id="user-content-install-the-sdk-using-the-latest-jar" class="anchor" href="#install-the-sdk-using-the-latest-jar" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Install the SDK Using the Latest JAR</h3>
+<p>The latest JAR files can be downloaded <a href="https://s3.amazonaws.com/aws-iot-device-sdk-java/aws-iot-device-sdk-java-LATEST.zip">here</a>. You can simply extract
+and copy the JAR files to your project's library directory, and then update your IDE to
+include them to your library build path.</p>
+<p>You will also need to add two libraries the SDK depends on:</p>
+<ul>
+<li>Jackson 2.x, including <a href="https://github.com/FasterXML/jackson-core">Jackson-core</a> <a href="https://github.com/FasterXML/jackson-core">jackson-core</a> and <a href="https://github.com/FasterXML/jackson-databind">Jackson-databind</a> <a href="https://github.com/FasterXML/jackson-databind">jackson-databind</a>
+</li>
+<li>Paho MQTT client for Java 1.1.x. <a href="https://eclipse.org/paho/clients/java/">download instructions</a>
+</li>
+</ul>
+<h3>
+<a id="user-content-build-the-sdk-from-the-github-source" class="anchor" href="#build-the-sdk-from-the-github-source" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Build the SDK from the GitHub Source</h3>
+<p>You can build both the SDK and its sample applications from the source
+hosted at GitHub.</p>
+<div class="highlight highlight-source-shell"><pre>$ git clone https://github.com/aws/aws-iot-device-sdk-java.git
+$ <span class="pl-c1">cd</span> aws-iot-device-sdk-java
+$ mvn clean install -Dgpg.skip=true</pre></div>
+<h2>
+<a id="user-content-use-the-sdk" class="anchor" href="#use-the-sdk" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Use the SDK</h2>
+<p>The following sections provide some basic examples of using the SDK to access the
+AWS IoT service over MQTT. For more information about each API, see the <a href="http://aws-iot-device-sdk-java-docs.s3-website-us-east-1.amazonaws.com/">API documentation</a>.</p>
+<h3>
+<a id="user-content-initialize-the-client" class="anchor" href="#initialize-the-client" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Initialize the Client</h3>
+<p>To access the AWS IoT service, you must initialize <code>AWSIotMqttClient</code>. The
+way in which you initialize the client depends on the connection
+type (MQTT or MQTT over WebSocket) you choose. In both cases,
+a valid client endpoint and client ID are required for setting up the connection.</p>
+<ul>
+<li>Initialize the Client with MQTT (over TLS 1.2):
+For this MQTT connection type (port 8883), the AWS IoT service requires TLS
+mutual authentication, so a valid client certificate (X.509)
+and RSA keys are required. You can use the
+<a href="http://aws.amazon.com/iot/">AWS IoT console</a> or the AWS command line tools to generate certificates and keys. For the SDK,
+only a certificate file and private key file are required.</li>
+</ul>
+<div class="highlight highlight-source-java"><pre><span class="pl-smi">String</span> clientEndpoint <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com<span class="pl-pds">"</span></span>;       <span class="pl-c"><span class="pl-c">//</span> replace &lt;prefix&gt; and &lt;region&gt; with your own</span>
+<span class="pl-smi">String</span> clientId <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;unique client id&gt;<span class="pl-pds">"</span></span>;                              <span class="pl-c"><span class="pl-c">//</span> replace with your own client ID. Use unique client IDs for concurrent connections.</span>
+<span class="pl-smi">String</span> certificateFile <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;certificate file&gt;<span class="pl-pds">"</span></span>;                       <span class="pl-c"><span class="pl-c">//</span> X.509 based certificate file</span>
+<span class="pl-smi">String</span> privateKeyFile <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;private key file&gt;<span class="pl-pds">"</span></span>;                        <span class="pl-c"><span class="pl-c">//</span> PKCS#1 or PKCS#8 PEM encoded private key file</span>
+
+<span class="pl-c"><span class="pl-c">//</span> SampleUtil.java and its dependency PrivateKeyReader.java can be copied from the sample source code.</span>
+<span class="pl-c"><span class="pl-c">//</span> Alternatively, you could load key store directly from a file - see the example included in this README.</span>
+<span class="pl-smi">KeyStorePasswordPair</span> pair <span class="pl-k">=</span> <span class="pl-smi">SampleUtil</span><span class="pl-k">.</span>getKeyStorePasswordPair(certificateFile, privateKeyFile);
+<span class="pl-smi">AWSIotMqttClient</span> client <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">AWSIotMqttClient</span>(clientEndpoint, clientId, pair<span class="pl-k">.</span>keyStore, pair<span class="pl-k">.</span>keyPassword);
+
+<span class="pl-c"><span class="pl-c">//</span> optional parameters can be set before connect()</span>
+client<span class="pl-k">.</span>connect();</pre></div>
+<ul>
+<li>Initialize the Client with MQTT Over WebSocket:
+For this MQTT connection type (port 443), you will need valid IAM credentials
+to initialize the client. This includes an AWS access key ID and secret
+access key. There are a number of ways to get IAM credentials (for example, by creating
+permanent IAM users or by requesting temporary credentials through the Amazon Cognito
+service). For more information, see the developer guides for these services.</li>
+</ul>
+<p>As a best practice for application security, do not embed
+credentials directly in the source code.</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-smi">String</span> clientEndpoint <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com<span class="pl-pds">"</span></span>;       <span class="pl-c"><span class="pl-c">//</span> replace &lt;prefix&gt; and &lt;region&gt; with your own</span>
+<span class="pl-smi">String</span> clientId <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;unique client id&gt;<span class="pl-pds">"</span></span>;                              <span class="pl-c"><span class="pl-c">//</span> replace with your own client ID. Use unique client IDs for concurrent connections.</span>
+
+<span class="pl-c"><span class="pl-c">//</span> AWS IAM credentials could be retrieved from AWS Cognito, STS, or other secure sources</span>
+<span class="pl-smi">AWSIotMqttClient</span> client <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">AWSIotMqttClient</span>(clientEndpoint, clientId, awsAccessKeyId, awsSecretAccessKey, sessionToken);
+
+<span class="pl-c"><span class="pl-c">//</span> optional parameters can be set before connect()</span>
+client<span class="pl-k">.</span>connect();</pre></div>
+<h3>
+<a id="user-content-publish-and-subscribe" class="anchor" href="#publish-and-subscribe" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Publish and Subscribe</h3>
+<p>After the client is initialized and connected, you can publish messages and subscribe
+to topics.</p>
+<p>To publish a message using a blocking API:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-smi">String</span> topic <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>my/own/topic<span class="pl-pds">"</span></span>;
+<span class="pl-smi">String</span> payload <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>any payload<span class="pl-pds">"</span></span>;
+
+client<span class="pl-k">.</span>publish(topic, <span class="pl-smi">AWSIotQos</span><span class="pl-c1"><span class="pl-k">.</span>QOS0</span>, payload);</pre></div>
+<p>To publish a message using a non-blocking API:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MyMessage</span> <span class="pl-k">extends</span> <span class="pl-e">AWSIotMessage</span> {
+    <span class="pl-k">public</span> <span class="pl-en">MyMessage</span>(<span class="pl-smi">String</span> <span class="pl-v">topic</span>, <span class="pl-smi">AWSIotQos</span> <span class="pl-v">qos</span>, <span class="pl-smi">String</span> <span class="pl-v">payload</span>) {
+        <span class="pl-c1">super</span>(topic, qos, payload);
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onSuccess</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when message publishing succeeded</span>
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onFailure</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when message publishing failed</span>
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onTimeout</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when message publishing timed out</span>
+    }
+}
+
+<span class="pl-smi">String</span> topic <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>my/own/topic<span class="pl-pds">"</span></span>;
+<span class="pl-smi">AWSIotQos</span> qos <span class="pl-k">=</span> <span class="pl-smi">AWSIotQos</span><span class="pl-c1"><span class="pl-k">.</span>QOS0</span>;
+<span class="pl-smi">String</span> payload <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>any payload<span class="pl-pds">"</span></span>;
+<span class="pl-k">long</span> timeout <span class="pl-k">=</span> <span class="pl-c1">3000</span>;                    <span class="pl-c"><span class="pl-c">//</span> milliseconds</span>
+
+<span class="pl-smi">MyMessage</span> message <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyMessage</span>(topic, qos, payload);
+client<span class="pl-k">.</span>publish(message, timeout);</pre></div>
+<p>To subscribe to a topic:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MyTopic</span> <span class="pl-k">extends</span> <span class="pl-e">AWSIotTopic</span> {
+    <span class="pl-k">public</span> <span class="pl-en">MyTopic</span>(<span class="pl-smi">String</span> <span class="pl-v">topic</span>, <span class="pl-smi">AWSIotQos</span> <span class="pl-v">qos</span>) {
+        <span class="pl-c1">super</span>(topic, qos);
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onMessage</span>(<span class="pl-smi">AWSIotMessage</span> <span class="pl-v">message</span>) {
+        <span class="pl-c"><span class="pl-c">//</span> called when a message is received</span>
+    }
+}
+
+<span class="pl-smi">String</span> topicName <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>my/own/topic<span class="pl-pds">"</span></span>;
+<span class="pl-smi">AWSIotQos</span> qos <span class="pl-k">=</span> <span class="pl-smi">AWSIotQos</span><span class="pl-c1"><span class="pl-k">.</span>QOS0</span>;
+
+<span class="pl-smi">MyTopic</span> topic <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyTopic</span>(topicName, qos);
+client<span class="pl-k">.</span>subscribe(topic);</pre></div>
+<h3>
+<a id="user-content-shadow-methods" class="anchor" href="#shadow-methods" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Shadow Methods</h3>
+<p>To access a shadow using a blocking API:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-smi">String</span> thingName <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;thing name&gt;<span class="pl-pds">"</span></span>;                    <span class="pl-c"><span class="pl-c">//</span> replace with your AWS IoT Thing name</span>
+
+<span class="pl-smi">AWSIotDevice</span> device <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">AWSIotDevice</span>(thingName);
+
+client<span class="pl-k">.</span>attach(device);
+client<span class="pl-k">.</span>connect();
+
+<span class="pl-c"><span class="pl-c">//</span> Delete existing shadow document</span>
+device<span class="pl-k">.</span>delete();
+
+<span class="pl-c"><span class="pl-c">//</span> Update shadow document</span>
+<span class="pl-smi">State</span> state <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>{<span class="pl-cce">\"</span>state<span class="pl-cce">\"</span>:{<span class="pl-cce">\"</span>reported<span class="pl-cce">\"</span>:{<span class="pl-cce">\"</span>sensor<span class="pl-cce">\"</span>:3.0}}}<span class="pl-pds">"</span></span>;
+device<span class="pl-k">.</span>update(state);
+
+<span class="pl-c"><span class="pl-c">//</span> Get the entire shadow document</span>
+<span class="pl-smi">String</span> state <span class="pl-k">=</span> device<span class="pl-k">.</span>get();</pre></div>
+<p>To access a shadow using a non-blocking API:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MyShadowMessage</span> <span class="pl-k">extends</span> <span class="pl-e">AWSIotMessage</span> {
+    <span class="pl-k">public</span> <span class="pl-en">MyShadowMessage</span>() {
+        <span class="pl-c1">super</span>(<span class="pl-c1">null</span>, <span class="pl-c1">null</span>);
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onSuccess</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when the shadow method succeeded</span>
+        <span class="pl-c"><span class="pl-c">//</span> state (JSON document) received is available in the payload field</span>
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onFailure</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when the shadow method failed</span>
+    }
+
+    <span class="pl-k">@Override</span>
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">onTimeout</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> called when the shadow method timed out</span>
+    }
+}
+
+<span class="pl-smi">String</span> thingName <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;thing name&gt;<span class="pl-pds">"</span></span>;      <span class="pl-c"><span class="pl-c">//</span> replace with your AWS IoT Thing name</span>
+
+<span class="pl-smi">AWSIotDevice</span> device <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">AWSIotDevice</span>(thingName);
+
+client<span class="pl-k">.</span>attach(device);
+client<span class="pl-k">.</span>connect();
+
+<span class="pl-smi">MyShadowMessage</span> message <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyShadowMessage</span>();
+<span class="pl-k">long</span> timeout <span class="pl-k">=</span> <span class="pl-c1">3000</span>;                    <span class="pl-c"><span class="pl-c">//</span> milliseconds</span>
+device<span class="pl-k">.</span>get(message, timeout);</pre></div>
+<h3>
+<a id="user-content-simplified-shadow-access-model-1" class="anchor" href="#simplified-shadow-access-model-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Simplified Shadow Access Model</h3>
+<p>To use the simplified shadow access model, you need to extend the device class
+<code>AWSIotDevice</code>, and then use the annotation class <code>AWSIotDeviceProperty</code>
+to mark the device attributes and provide getter and setter methods for them.
+The following very simple example has one attribute, <code>someValue</code>, defined.
+The code will report the attribute to the shadow, identified by <em><strong>thingName</strong></em>
+every 5 seconds, in the <em><strong>reported</strong></em> section of the shadow document. The SDK
+will call the setter method <code>setSomeValue()</code> whenever there's
+a change to the <em><strong>desired</strong></em> section of the shadow document.</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-k">public</span> <span class="pl-k">class</span> <span class="pl-en">MyDevice</span> <span class="pl-k">extends</span> <span class="pl-e">AWSIotDevice</span> {
+    <span class="pl-k">public</span> <span class="pl-en">MyDevice</span>(<span class="pl-smi">String</span> <span class="pl-v">thingName</span>) {
+        <span class="pl-c1">super</span>(thingName);
+    }
+
+    <span class="pl-k">@AWSIotDeviceProperty</span>
+    <span class="pl-k">private</span> <span class="pl-smi">String</span> someValue;
+
+    <span class="pl-k">public</span> <span class="pl-smi">String</span> <span class="pl-en">getSomeValue</span>() {
+        <span class="pl-c"><span class="pl-c">//</span> read from the physical device</span>
+    }
+
+    <span class="pl-k">public</span> <span class="pl-k">void</span> <span class="pl-en">setSomeValue</span>(<span class="pl-smi">String</span> <span class="pl-v">newValue</span>) {
+        <span class="pl-c"><span class="pl-c">//</span> write to the physical device</span>
+    }
+}
+
+<span class="pl-smi">MyDevice</span> device <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">MyDevice</span>(thingName);
+
+<span class="pl-k">long</span> reportInterval <span class="pl-k">=</span> <span class="pl-c1">5000</span>;            <span class="pl-c"><span class="pl-c">//</span> milliseconds. Default </span>
+interval is <span class="pl-c1">3000.</span>
+device<span class="pl-k">.</span>setReportInterval(reportInterval);
+
+client<span class="pl-k">.</span>attach(device);
+client<span class="pl-k">.</span>connect();</pre></div>
+<h3>
+<a id="user-content-other-topics" class="anchor" href="#other-topics" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Other Topics</h3>
+<h4>
+<a id="user-content-enable-logging" class="anchor" href="#enable-logging" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Enable Logging</h4>
+<p>The SDK uses <code>java.util.logging</code> for logging. To change
+the logging behavior (for example, to change the logging level or logging destination), you can
+specify a property file using the JVM property
+<code>java.util.logging.config.file</code>. It can be provided through JVM arguments like so:</p>
+<div class="highlight highlight-source-shell"><pre>-Djava.util.logging.config.file=<span class="pl-s"><span class="pl-pds">"</span>logging.properties<span class="pl-pds">"</span></span> </pre></div>
+<p>To change the console logging level, the property file <em><strong>logging.properties</strong></em>
+should contain the following lines:</p>
+<pre><code># Override of console logging level 
+java.util.logging.ConsoleHandler.level=INFO 
+</code></pre>
+<h4>
+<a id="user-content-load-keystore-from-file-to-initialize-the-client" class="anchor" href="#load-keystore-from-file-to-initialize-the-client" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Load KeyStore from File to Initialize the Client</h4>
+<p>You can load a KeyStore object directly from JKS-based keystore files.
+You will first need to import X.509 certificate and the private key into the keystore
+file like so:</p>
+<div class="highlight highlight-source-shell"><pre>$ openssl pkcs12 -export -in <span class="pl-k">&lt;</span>certificate-file<span class="pl-k">&gt;</span> -inkey <span class="pl-k">&lt;</span>private-key-file<span class="pl-k">&gt;</span> -out p12.keystore -name <span class="pl-c1">alias</span>
+(type <span class="pl-k">in</span> the <span class="pl-k">export</span> password)
+
+$ keytool -importkeystore -srckeystore p12.keystore -srcstoretype PKCS12 -srcstorepass <span class="pl-k">&lt;</span>export-password<span class="pl-k">&gt;</span> -alias <span class="pl-c1">alias</span> -deststorepass <span class="pl-k">&lt;</span>keystore-password<span class="pl-k">&gt;</span> -destkeypass <span class="pl-k">&lt;</span>key-password<span class="pl-k">&gt;</span> -destkeystore my.keystore </pre></div>
+<p>After the keystore file <em><strong>my.keystore</strong></em> is created, you can use it to
+initialize the client like so:</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-smi">String</span> keyStoreFile <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;my.keystore&gt;<span class="pl-pds">"</span></span>;                               <span class="pl-c"><span class="pl-c">//</span> replace with your own key store file</span>
+<span class="pl-smi">String</span> keyStorePassword <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;keystore-password&gt;<span class="pl-pds">"</span></span>;                     <span class="pl-c"><span class="pl-c">//</span> replace with your own key store password</span>
+<span class="pl-smi">String</span> keyPassword <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;key-password&gt;<span class="pl-pds">"</span></span>                                <span class="pl-c"><span class="pl-c">//</span> replace with your own key password</span>
+
+<span class="pl-smi">KeyStore</span> keyStore <span class="pl-k">=</span> <span class="pl-smi">KeyStore</span><span class="pl-k">.</span>getInstance(<span class="pl-smi">KeyStore</span><span class="pl-k">.</span>getDefaultType());
+keyStore<span class="pl-k">.</span>load(<span class="pl-k">new</span> <span class="pl-smi">FileInputStream</span>(keyStoreFile), keyStorePassword<span class="pl-k">.</span>toCharArray());
+
+<span class="pl-smi">String</span> clientEndpoint <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com<span class="pl-pds">"</span></span>;       <span class="pl-c"><span class="pl-c">//</span> replace &lt;prefix&gt; and &lt;region&gt; with your own</span>
+<span class="pl-smi">String</span> clientId <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>&lt;unique client id&gt;<span class="pl-pds">"</span></span>;                              <span class="pl-c"><span class="pl-c">//</span> replace with your own client ID. Use unique client IDs for concurrent connections.</span>
+
+<span class="pl-smi">AWSIotMqttClient</span> client <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-smi">AWSIotMqttClient</span>(clientEndpoint, clientId, keyStore, keyPassword);</pre></div>
+<h4>
+<a id="user-content-use-ecc-based-certificates" class="anchor" href="#use-ecc-based-certificates" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Use ECC-Based Certificates</h4>
+<p>You can use Elliptic Curve Cryptography (ECC)-based certificates to initialize the client. To create an ECC key and certificate, see <a href="https://aws.amazon.com/blogs/iot/elliptic-curve-cryptography-and-forward-secrecy-support-in-aws-iot-3/">this blog post</a>. After you have created and registered the key and certificate, use the following command to convert
+the ECC key file to PKCK#8 format.</p>
+<div class="highlight highlight-source-shell"><pre>$ openssl pkcs8 -topk8 -nocrypt -in ecckey.key -out ecckey-pk8.key
+(type <span class="pl-k">in</span> the key password)</pre></div>
+<p>You can then use the instruction described in <a href="#initialize-the-client">this section</a> to initialize the client
+with just this one change.</p>
+<div class="highlight highlight-source-java"><pre><span class="pl-c"><span class="pl-c">//</span> SampleUtil.java and its dependency PrivateKeyReader.java can be copied from the sample source code.</span>
+<span class="pl-c"><span class="pl-c">//</span> Alternatively, you could load key store directly from a file - see the example included in this README.</span>
+<span class="pl-smi">KeyStorePasswordPair</span> pair <span class="pl-k">=</span> <span class="pl-smi">SampleUtil</span><span class="pl-k">.</span>getKeyStorePasswordPair(certificateFile, privateKeyFile, <span class="pl-s"><span class="pl-pds">"</span>EC<span class="pl-pds">"</span></span>);</pre></div>
+<h2>
+<a id="user-content-sample-applications" class="anchor" href="#sample-applications" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Sample Applications</h2>
+<p>There are three samples applications included with the SDK. The easiest way to
+run these samples is through Maven, which will take care of getting the
+dependencies.</p>
+<ul>
+<li>
+<p>Publish/Subscribe sample:
+This sample consists of two publishers publishing one message per second to a
+topic. One subscriber subscribing to the same topic receives and prints the
+messages.</p>
+</li>
+<li>
+<p>Shadow sample:
+This sample consists of a simple demo of the simplified shadow access
+model. The device contains two attributes: window state and room temperature.
+Window state can be modified (therefore, controlled) remotely through
+<em><strong>desired</strong></em> state. To demonstrate this control function, you can use the AWS
+IoT console to modify the desired window state, and then see its change from the
+sample output.</p>
+</li>
+<li>
+<p>Shadow echo sample:
+This sample consists of a simple demo that uses Shadow methods to send a shadow
+update and then retrieve it back every second.</p>
+</li>
+</ul>
+<h3>
+<a id="user-content-arguments-for-the-sample-applications" class="anchor" href="#arguments-for-the-sample-applications" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Arguments for the Sample Applications</h3>
+<p>To run the samples, you will also need to provide the following arguments
+through the command line:</p>
+<ul>
+<li>clientEndpoint: client endpoint, in the form of <code>&lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com</code>
+</li>
+<li>clientId: client ID</li>
+<li>thingName: AWS IoT thing name (not required for the Publish/Subscribe sample)</li>
+</ul>
+<p>You will also need to provide either set of the following arguments for authentication.
+For an MQTT connection, provide these arguments:</p>
+<ul>
+<li>certificateFile: X.509 based certificate file (For Just-in-time registration, this
+is the concatenated file from both the device certificate and CA certificate. For more information
+about Just-in-Time Registration, please see <a href="https://aws.amazon.com/blogs/iot/just-in-time-registration-of-device-certificates-on-aws-iot/">this blog</a>.</li>
+<li>privateKeyFile: private key file</li>
+<li>keyAlgorithm: (optional) RSA or EC. If not specified, RSA is used.</li>
+</ul>
+<p>For an MQTT over WebSocket connection, provide these arguments:</p>
+<ul>
+<li>awsAccessKeyId: IAM access key ID</li>
+<li>awsSecretAccessKey: IAM secret access key</li>
+<li>sessionToken: (optional) if temporary credentials are used</li>
+</ul>
+<h3>
+<a id="user-content-run-the-sample-applications" class="anchor" href="#run-the-sample-applications" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Run the Sample Applications</h3>
+<p>You can use the following commands to execute the sample applications (assuming
+TLS mutual authentication is used).</p>
+<ul>
+<li>To run the Publish/Subscribe sample, use the following command:</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre>$ mvn exec:java -pl aws-iot-device-sdk-java-samples -Dexec.mainClass=<span class="pl-s"><span class="pl-pds">"</span>com.amazonaws.services.iot.client.sample.pubSub.PublishSubscribeSample<span class="pl-pds">"</span></span> -Dexec.args=<span class="pl-s"><span class="pl-pds">"</span>-clientEndpoint &lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com -clientId &lt;unique client id&gt; -certificateFile &lt;certificate file&gt; -privateKeyFile &lt;private key file&gt;<span class="pl-pds">"</span></span></pre></div>
+<ul>
+<li>To run the Shadow sample, use the following command:</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre>$ mvn exec:java -pl aws-iot-device-sdk-java-samples -Dexec.mainClass=<span class="pl-s"><span class="pl-pds">"</span>com.amazonaws.services.iot.client.sample.shadow.ShadowSample<span class="pl-pds">"</span></span> -Dexec.args=<span class="pl-s"><span class="pl-pds">"</span>-clientEndpoint &lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com -clientId &lt;unique client id&gt; -thingName &lt;thing name&gt; -certificateFile &lt;certificate file&gt; -privateKeyFile &lt;private key file&gt;<span class="pl-pds">"</span></span></pre></div>
+<ul>
+<li>To run the Shadow echo sample, use the following command:</li>
+</ul>
+<div class="highlight highlight-source-shell"><pre>$ mvn exec:java -pl aws-iot-device-sdk-java-samples -Dexec.mainClass=<span class="pl-s"><span class="pl-pds">"</span>com.amazonaws.services.iot.client.sample.shadowEcho.ShadowEchoSample<span class="pl-pds">"</span></span> -Dexec.args=<span class="pl-s"><span class="pl-pds">"</span>-clientEndpoint &lt;prefix&gt;.iot.&lt;region&gt;.amazonaws.com -clientId &lt;unique client id&gt; -thingName &lt;thing name&gt; -certificateFile &lt;certificate file&gt; -privateKeyFile &lt;private key file&gt;<span class="pl-pds">"</span></span></pre></div>
+<h3>
+<a id="user-content-sample-source-code" class="anchor" href="#sample-source-code" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Sample Source Code</h3>
+<p>You can get the sample source code either from the GitHub repository as described
+<a href="#build-the-sdk-from-the-github-source">here</a> or from <a href="https://s3.amazonaws.com/aws-iot-device-sdk-java/aws-iot-device-sdk-java-LATEST.zip">the latest SDK binary</a>.
+They both provide you with Maven project files that you can use to build and run the samples
+from the command line or import them into an IDE, such as Eclipse.</p>
+<p>The sample source code included with the latest SDK binary is shipped with a modified Maven
+project file (pom.xml) that allows you to build the sample source indepedently, without the
+need to reference the parent POM file as with the GitHub source tree.</p>
+<h2>
+<a id="user-content-api-documentation" class="anchor" href="#api-documentation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>API Documentation</h2>
+<p>You'll find the API documentation for the SDK <a href="http://aws-iot-device-sdk-java-docs.s3-website-us-east-1.amazonaws.com/">here</a>.</p>
+<h2>
+<a id="user-content-license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h2>
+<p>This SDK is distributed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>. For more information, see
+LICENSE.txt and NOTICE.txt.</p>
+<h2>
+<a id="user-content-support" class="anchor" href="#support" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Support</h2>
+<p>If you have technical questions about the AWS IoT Device SDK, use the <a href="https://forums.aws.amazon.com/forum.jspa?forumID=210">AWS IoT Forum</a>.
+For any other questions about AWS IoT, contact <a href="https://aws.amazon.com/contact-us">AWS Support</a>.</p>

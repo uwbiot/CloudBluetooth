@@ -1,0 +1,5 @@
+com.amazonaws.services.iot.client
+com.amazonaws.services.iot.client.core
+com.amazonaws.services.iot.client.mqtt
+com.amazonaws.services.iot.client.shadow
+com.amazonaws.services.iot.client.util

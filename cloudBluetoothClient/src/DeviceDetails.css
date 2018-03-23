@@ -1,0 +1,12 @@
+.service {
+    display: block;
+    border: 1px solid #ccc!important;
+    border-radius: 16px;
+    width: 600px;
+    margin-left:auto;
+    margin-right:auto;
+}
+
+.serviceName {
+    cursor: pointer;
+}

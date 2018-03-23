@@ -13,18 +13,39 @@ var dynamodb = new AWS.DynamoDB();
 
 var params = {
     TableName : "Devices",
-    KeySchema: [       
-        { AttributeName: "macAddress", KeyType: "HASH" },  //Partition key
-        { AttributeName: "agentID", KeyType: "RANGE"} //Sort key
+    KeySchema: [
+        { AttributeName: "agentID", KeyType: "HASH"},  //partition key
+        { AttributeName: "macAddress", KeyType: "RANGE" }    // sort key    
     ],
-    AttributeDefinitions: [       
+    AttributeDefinitions: [
+        { AttributeName: "agentID", AttributeType: "S"},   
         { AttributeName: "macAddress", AttributeType: "S" },
-        { AttributeName: "agentID", AttributeType: "S" }
+        { AttributeName: "lastAvailTime", AttributeType: "N" },
     ],
     ProvisionedThroughput: {       
         ReadCapacityUnits: 10,
         WriteCapacityUnits: 10
-    }
+    },
+    GlobalSecondaryIndexes: [
+        {
+            IndexName: "IsAvailable",
+            KeySchema: [
+                //{AttributeName: "macAddress", KeyType: "HASH"}, //partition key
+                { AttributeName: "lastAvailTime", KeyType: "HASH" } // partition key
+            ],
+            Projection: {
+                ProjectionType: "ALL"
+            },
+            ProvisionedThroughput: {
+                ReadCapacityUnits: 1,
+                WriteCapacityUnits: 1
+            }
+        }
+    ]
+};
+
+var paramsDelete = {
+    TableName: "Devices"
 };
 
 function dynamodbCreateTable(){
@@ -37,9 +58,18 @@ dynamodbCreateTable.prototype.createTable = function() {
         } else {
             console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
         }
-    });
-
-    
+    });  
 }
+
+dynamodbCreateTable.prototype.deleteTable = function () {
+    dynamodb.deleteTable(paramsDelete, function (err, data) {
+        if (err) {
+            console.error("Unable to delete table. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Deleted table. Table description JSON:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
 module.exports = dynamodbCreateTable;
 

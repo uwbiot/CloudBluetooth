@@ -23,12 +23,9 @@ setTimeout(() => {
 
 }, 2000);
 
-/*
+
 // public services
 
-// Sample Services. 
-dynamoDBClient.putPublicService("0000180d-0000-1000-8000-00805f9b34fb", "Heart Rate Service");
-dynamoDBClient.putPublicService("0000180a-0000-1000-8000-00805f9b34fb", "Device Information Service");
 
 // Sample Characteristics. 
 dynamoDBClient.putPublicService("00002a37-0000-1000-8000-00805f9b34fb", "Heart Rate Measurement");
@@ -202,4 +199,3 @@ dynamoDBClient.putUserDefineService("f000aa64-0451-4000-b000-000000000000", "Tes
 dynamoDBClient.putUserDefineService("f000aa65-0451-4000-b000-000000000000", "Test Data");
 dynamoDBClient.putUserDefineService("0000ffe0-0000-1000-8000-00805f9b34fb", "Key Service");
 dynamoDBClient.putUserDefineService("0000ffe1-0000-1000-8000-00805f9b34fb", "Key Data");
-*/

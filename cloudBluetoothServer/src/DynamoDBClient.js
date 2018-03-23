@@ -1,18 +1,17 @@
 var AWS = require("aws-sdk");
-
+/*
 AWS.config.update({
   region: "us-west-2",
   endpoint: "http://localhost:8000"
 });
+*/
 
-
-/*
 AWS.config.update({
   region: "us-west-2"
-});*/
+});
 
-//const ServiceNameLookup = require('./ServiceNameLookup.js');
-//var serviceNameLookup = new ServiceNameLookup();
+var CHECK_AVAILABLE_PERIOD = 300;
+var CHECK_CONNECT_PERIOD = 10;
 
 var docClient = new AWS.DynamoDB.DocumentClient();
 var devicesTable = "Devices";
@@ -22,22 +21,21 @@ var userDefineTable = "userDefineServices";
 function DynamoDBClient() {
 }
 
-DynamoDBClient.prototype.putDevice = function(DeviceJSON) {
-    var agentID = DeviceJSON.agentID;
-    var macAddress = DeviceJSON.macAddress;
-    var deviceName = DeviceJSON.deviceName;
+DynamoDBClient.prototype.putDevice = function (agentID, macAddress, deviceName) {
+    var date = new Date();
     console.log("agentID:" + agentID);
     console.log("macAddress:" + macAddress);
     console.log("deviceName:" + deviceName);
     var params = {
         TableName: devicesTable,
         Item:{
-            "macAddress": macAddress,
             "agentID": agentID,
-            "deviceName": deviceName
+            "macAddress": macAddress,
+            "deviceName": deviceName,
+            "lastAvailTime": Math.floor(date.getTime() / 1000),
+            "lastConnTime": 0
         }
     };
-
     console.log("Adding new device...");
     docClient.put(params, function(err, data) {
         if (err) {
@@ -48,22 +46,20 @@ DynamoDBClient.prototype.putDevice = function(DeviceJSON) {
     });
 }
 
-DynamoDBClient.prototype.scanAllDevices = function(callback) {
+DynamoDBClient.prototype.scanAllAvailableDevices = function(callback) {
     console.log("Scanning for active devices");
 
     var params = {
         TableName: devicesTable,
-        ProjectionExpression: "macAddress, agentID, deviceName"
-        // FilterExpression: "#as = :y",
-        // ExpressionAttributeNames: {
-        //     "#as": "agentStatus"
-        // },
-        // ExpressionAttributeValues: {
-        //      ":y": 1 
-        // }
+        IndexName: "IsAvailable",
+        FilterExpression: "lastAvailTime > :limitAvailTime",
+        ProjectionExpression: "macAddress, agentID, deviceName",
+        ExpressionAttributeValues: {
+            ":limitAvailTime": Math.floor(new Date().getTime() / 1000) - CHECK_AVAILABLE_PERIOD
+        }
     };
     
-    console.log("Scanning Devices table.");
+    console.log("Scanning Devices table, get all available devices");
     docClient.scan(params, (err, data) => {
         if (err) {
             console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
@@ -87,14 +83,12 @@ DynamoDBClient.prototype.updateServices = function(agentID, macAddress, services
     console.log("agentID:" + agentID);
     console.log("macAddress:" + macAddress);
     console.log("uuids:" + JSON.stringify(services));
-    var table = devicesTable;
-    var macAddress = macAddress;
     // Update the item, unconditionally,
     var params = {
-        TableName:table,
+        TableName: devicesTable,
         Key:{
-            "macAddress": macAddress,
-            "agentID": agentID
+            "agentID": agentID,
+            "macAddress": macAddress
         },
         UpdateExpression: "set services = :s",
         ExpressionAttributeValues:{
@@ -113,24 +107,107 @@ DynamoDBClient.prototype.updateServices = function(agentID, macAddress, services
     });
 }
 
-DynamoDBClient.prototype.getDevice = function(macAddress, callback) {
-    console.log("Querying for device with macAddress");
+DynamoDBClient.prototype.updateAvailTime = function (agentID, macAddress) {
+    console.log("Updating available time");
+    console.log("agentID: " + agentID);
+    console.log("macAddress: " + macAddress);
+    // Update the item, unconditionally,
+    var params = {
+        TableName: devicesTable,
+        Key: {
+            "agentID": agentID,
+            "macAddress": macAddress
+        },
+        UpdateExpression: "set lastAvailTime = :t",
+        ExpressionAttributeValues: {
+            ":t": Math.floor(new Date().getTime() / 1000)
+        },
+        ReturnValues: "UPDATED_NEW"
+    };
+
+    console.log("Updating the last available time...");
+    docClient.update(params, function (err, data) {
+        if (err) {
+            console.error("Unable to update available time. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Update available time succeeded:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.updateConnTime = function (agentID, macAddress) {
+    console.log("Updating connect time");
+    console.log("agentID: " + agentID);
+    console.log("macAddress: " + macAddress);
+    var params = {
+        TableName: devicesTable,
+        Key: {
+            "agentID": agentID,
+            "macAddress": macAddress
+        },
+        UpdateExpression: "set lastAvailTime = :t, lastConnTime = :t",
+        ExpressionAttributeValues: {
+            ":t": Math.floor(new Date().getTime() / 1000)
+        },
+        ReturnValues: "UPDATED_NEW"
+    };
+
+    console.log("Updating the last connect time...");
+    docClient.update(params, function (err, data) {
+        if (err) {
+            console.error("Unable to update connect time. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Update connect time succeeded:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.initialConnTime = function (agentID, macAddress) {
+    console.log("Initial connect time to 0.");
+    console.log("agentID: " + agentID);
+    console.log("macAddress: " + macAddress);
+    var params = {
+        TableName: devicesTable,
+        Key: {
+            "agentID": agentID,
+            "macAddress": macAddress
+        },
+        UpdateExpression: "set lastConnTime = :t",
+        ExpressionAttributeValues: {
+            ":t": 0
+        },
+        ReturnValues: "UPDATED_NEW"
+    };
+
+    console.log("Initial the last connect time...");
+    docClient.update(params, function (err, data) {
+        if (err) {
+            console.error("Unable to initial connect time. Error JSON: ", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Update initial time succeeded:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.getDevice = function (agentID, macAddress, callback) {
+    console.log("Getting for device with macAddress");
 
     var params = {
         TableName : devicesTable,
         Key: {
+            "agentID": agentID,
             "macAddress": macAddress
         }
     };
 
     docClient.get(params, (err, data) => {
         if (err) {
-            console.log("Unable to query. Error:", JSON.stringify(err, null, 2));
+            console.log("Unable to get. Error:", JSON.stringify(err, null, 2));
         } else {
-            console.log("Query succeeded.");
+            console.log("Get succeeded.");
             console.log("macAddress: "+ data.Item.macAddress
-            + "agentID" + data.Item.agentID
-            + "uuids: " + data.Item.services);
+            + "agentID: " + data.Item.agentID + "lastAvailTime: " + data.Item.lastAvailTime
+            + "lastConnTime: " + data.Item.lastConnTime);
             if (callback) {
                 callback(data);
             }
@@ -234,7 +311,7 @@ DynamoDBClient.prototype.getAllPublicServices = function (callback) {
             console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
         } else {
             // print all the movies
-            console.log("Scan succeeded.");
+            console.log("Scan public services succeeded.");
             /*
             data.Items.forEach(function (item) {
                 console.log(item.serviceUUID + ": " + item.serviceName);
@@ -261,7 +338,7 @@ DynamoDBClient.prototype.getAllUserDefineServices = function (callback) {
             console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
         } else {
             // print all the movies
-            console.log("Scan succeeded.");
+            console.log("Scan user define services succeeded.");
             /*
             data.Items.forEach(function (item) {
                 console.log(item.serviceUUID + ": " + item.serviceName);

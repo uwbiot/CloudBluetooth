@@ -3,18 +3,18 @@ import React, { Component } from 'react';
 class ReadData extends Component {
     constructor(props) {
         super(props);
-        this.state = { data: props.uuid, error: '' };
-    }
-
-    componentDidMount() {
-        this.fetchData();
+        this.state = { data: '', error: '' };
     }
 
     render() {
-        return(<div>{this.state.data}</div>);
+        return(<div>
+            <button type="button" onClick = {this.fetchData.bind(this)}>Read</button>
+            {this.state.data}
+            </div>);
     }
 
     fetchData() {
+        //var endpoint = "/read";
         var endpoint = "http://localhost:4000/read";
         var component = this;
         fetch(endpoint, {
@@ -25,6 +25,8 @@ class ReadData extends Component {
             },
             body: JSON.stringify({
                 chara: this.props.uuid,
+                macAddress: this.props.macAddress,
+                agentID: this.props.agentID
             })
         }).then(function (response) {
             return response.json();

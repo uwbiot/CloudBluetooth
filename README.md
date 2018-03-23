@@ -9,3 +9,6 @@ This program is the Client side Javascript code
 
 ## CloudBluetoothServer
 This program is the Server side Javascript code
+
+## start this application
+start CloudBluetoothServer first, then run the android app and CloudBluetoothClient.

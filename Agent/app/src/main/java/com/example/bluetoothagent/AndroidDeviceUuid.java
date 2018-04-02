@@ -10,7 +10,7 @@ import android.telephony.TelephonyManager;
 public class AndroidDeviceUuid {
     private static String uuid;
 
-    public static void configUuid(Context context){
+    public static void configUuid(Context context) {
         TelephonyManager tManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
         AndroidDeviceUuid.uuid = tManager.getDeviceId();
     }

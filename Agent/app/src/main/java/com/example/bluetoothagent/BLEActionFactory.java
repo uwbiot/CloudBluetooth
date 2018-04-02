@@ -8,11 +8,13 @@ import android.bluetooth.BluetoothGattCharacteristic;
 
 public class BLEActionFactory {
     public static BLEAction getReadAction(BluetoothGattCharacteristic characteristic,
-                                          String requestID, String macAddress) {
-        return new ReadAction(characteristic, requestID, macAddress);
+                                          String requestId, String macAddress) {
+        return new ReadAction(characteristic, requestId, macAddress);
     }
+
     public static BLEAction getWriteAction(BluetoothGattCharacteristic characteristic,
-                                           String requestID, String macAddress) {
-        return new WriteAction(characteristic, requestID, macAddress);
+                                           String requestId, String macAddress) {
+        return new WriteAction(characteristic, requestId, macAddress);
     }
+
 }

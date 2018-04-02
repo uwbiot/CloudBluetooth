@@ -30,6 +30,7 @@ public class DeviceScanConnActivity extends Activity {
     private Handler mHandler;
     private static IotClient iotClient;
     private String mDeviceAddress;
+    private String mRequestId;
     private BluetoothLeService mBluetoothLeService;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
     private TextView textView;
@@ -37,6 +38,7 @@ public class DeviceScanConnActivity extends Activity {
     private Activity self;
     private TopicsManager topicsManager;
     private boolean isAvailableCheckRun = false;
+    private boolean isRegistered = false;
 
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
@@ -155,16 +157,19 @@ public class DeviceScanConnActivity extends Activity {
                             Log.d(LOG_TAG, "Message arrived:");
                             Log.d(LOG_TAG, "   Topic: " + topic);
                             Log.d(LOG_TAG, " Message: " + message);
-                            textView.append("connect Message arrived: macAddress " + message);
-                            mDeviceAddress = message;
+                            ConnectMessage connectMessage = new ConnectMessage(message);
+                            mDeviceAddress = connectMessage.macAddress;
+                            mRequestId = connectMessage.requestId;
+                            textView.append("connect Message arrived: macAddress " + mDeviceAddress);
                             if(mBluetoothLeService == null) {
                                 Intent gattServiceIntent = new Intent(self, BluetoothLeService.class);
                                 bindService(gattServiceIntent, MyServiceConnection, BIND_AUTO_CREATE);
                                 registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
                                 textView.append("register receiver!");
+                                isRegistered = true;
                             }
                             if(mBluetoothLeService != null) {
-                                final boolean result = mBluetoothLeService.connect(mDeviceAddress);
+                                final boolean result = mBluetoothLeService.connect(mDeviceAddress, mRequestId);
                                 textView.append("start connecting ble device result=" + result);
                                 Log.d("connect device", "Connect request result=" + result);
                             }
@@ -191,11 +196,13 @@ public class DeviceScanConnActivity extends Activity {
                             Log.d(LOG_TAG, "Message arrived:");
                             Log.d(LOG_TAG, "   Topic: " + topic);
                             Log.d(LOG_TAG, "disconnect Message: " + message);
-                            textView.append("disconnect Message arrived: macAddress " + message);
-                            String mDeviceAddress = message;
-                            textView.append("disconnect ble device: " + mDeviceAddress);
-                            Log.d("disconnect device", "disconnect request: " + mDeviceAddress);
-                            mBluetoothLeService.disconnect(mDeviceAddress);
+                            ConnectMessage connectMessage = new ConnectMessage(message);
+                            String macAddress = connectMessage.macAddress;
+                            String requestId = connectMessage.requestId;
+                            textView.append("disconnect Message arrived: macAddress " + macAddress);
+                            textView.append("disconnect ble device: " + macAddress);
+                            Log.d("disconnect device", "disconnect request: " + macAddress);
+                            mBluetoothLeService.disconnect(macAddress, requestId);
 
                         } catch (UnsupportedEncodingException e) {
                             Log.e(LOG_TAG, "Message encoding error.", e);
@@ -236,7 +243,9 @@ public class DeviceScanConnActivity extends Activity {
         public void run() {
             try {
                 deviceManager.clearAddressMap();
-                CallServerAPI.availableDevice(textView);
+                //CallServerAPI.availableDevice(textView);
+                textView.append("start scanning ble devices");
+                scanLeDevice(true);
             } finally {
                 // 100% guarantee that this always happens, even if
                 // your update method throws an exception
@@ -273,7 +282,7 @@ public class DeviceScanConnActivity extends Activity {
             }
             // Automatically connects to the device upon successful start-up initialization.
             Log.d("onServiceConnected", "connect");
-            mBluetoothLeService.connect(mDeviceAddress);
+            mBluetoothLeService.connect(mDeviceAddress, mRequestId);
         }
 
         @Override
@@ -310,16 +319,17 @@ public class DeviceScanConnActivity extends Activity {
         stopRepeatingAvailableCheckTask();
 
         if(mBluetoothLeService != null) {
-            if (mBluetoothLeService.getConnectedDevices().size() > 0) {
+            if (isRegistered) {
                 unregisterReceiver(mGattUpdateReceiver);
+                unbindService(MyServiceConnection);
             }
 
             for (String key : mBluetoothLeService.getConnectedDevices()) {
                 mBluetoothLeService.disconnect(key);
             }
         }
-
         mBluetoothLeService = null;
+        iotClient.disconnect();
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -366,30 +376,45 @@ public class DeviceScanConnActivity extends Activity {
     // ACTION_GATT_CONNECTED: connected to a GATT server.
     // ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
     // ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
-    // ACTION_DATA_AVAILABLE: received data from the device.  This can be a result of read
-    //                        or notification operations.
+    // ACTION_DATA_READ: received data from the device of read operations
+    // ACTION_DATA_WRITE: received data from the device of write operations
+    // ACTION_DATA_NOTIFY: received data from the device of notify operations
+    //
 
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             String deviceMacAddress = intent.getStringExtra(BluetoothLeService.MAC_ADDRESS);
+            String requestId = intent.getStringExtra(BluetoothLeService.REQUEST_ID);
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
-                iotClient.publish(topicsManager.getTopics().conn_res, Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_CONNECTED, "connected", deviceMacAddress));
+                iotClient.publish(topicsManager.getTopics().conn_res, Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_CONNECTED,
+                        "connected", deviceMacAddress, requestId));
                 textView.append("GATT status: connected");
                 iotClient.subscribe(topicsManager.getTopics().data_req, dataRequestCallback());
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
-                iotClient.publish(topicsManager.getTopics().conn_res, Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_DISCONNECTED, "disconnected", deviceMacAddress));
+                iotClient.publish(topicsManager.getTopics().conn_res,
+                        Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_DISCONNECTED,
+                                "disconnected", deviceMacAddress, requestId));
                 textView.append("GATT status: disconnected");
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 // Show all the supported services and characteristics on the user interface.
-                String message = Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_SERVICES_DISCOVERED, mBluetoothLeService.getSupportedGattServices(deviceMacAddress), deviceMacAddress);
+                String message = Messaging.writeServiceJSON(GATTMessageType.ACTION_GATT_SERVICES_DISCOVERED,
+                        mBluetoothLeService.getSupportedGattServices(deviceMacAddress),
+                        deviceMacAddress, requestId);
                 deviceManager.addListGATTCharacteristic(mBluetoothLeService.getSupportedGattServices(deviceMacAddress), deviceMacAddress);
                 iotClient.publish(topicsManager.getTopics().conn_res, message);
                 textView.append("GATT status: service discovered " + message);
-            } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
-                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_AVAILABLE, intent.getStringExtra(BluetoothLeService.EXTRA_DATA), intent.getStringExtra(BluetoothLeService.UUID_DATA), deviceMacAddress));
-                textView.append("GATT_data_response: data available");
+            } else if (BluetoothLeService.ACTION_DATA_READ.equals(action)) {
+                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_READ,
+                        intent.getStringExtra(BluetoothLeService.EXTRA_DATA), intent.getStringExtra(BluetoothLeService.UUID_DATA),
+                        deviceMacAddress, requestId));
+                textView.append("GATT_read_response: data available");
+            } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
+                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_WRITE,
+                                  intent.getStringExtra(BluetoothLeService.UUID_DATA),
+                                  deviceMacAddress, requestId));
+                textView.append("GATT_write_response: success!");
             }
         }
     };
@@ -412,14 +437,14 @@ public class DeviceScanConnActivity extends Activity {
                         DataMessage.MessageType type = dataMessage.type;
                         String uuid = dataMessage.uuid;
                         String macAddress = dataMessage.macAddress;
-                        String requestID = dataMessage.requestID;
+                        String requestId = dataMessage.requestId;
                         if (type.equals(DataMessage.MessageType.WRITE)) {
-                            mBluetoothLeService.writeCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), dataMessage.bytes, macAddress, requestID);
+                            mBluetoothLeService.writeCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), dataMessage.bytes, macAddress, requestId);
                             Log.d(LOG_TAG, "Write config file");
                             Log.d(LOG_TAG, new String(dataMessage.bytes));
                         } else if (type.equals(DataMessage.MessageType.READ)){
-                            mBluetoothLeService.readCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestID);
-                            //readData(uuid, macAddress, requestID);
+                            //mBluetoothLeService.readCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestID);
+                            readData(uuid, macAddress, requestId);
                         }
                     } catch (UnsupportedEncodingException e) {
                         Log.e(LOG_TAG, "Message encoding error.", e);
@@ -431,9 +456,9 @@ public class DeviceScanConnActivity extends Activity {
         return dataRequestCallback;
     }
 
-/*
+
     // read data from specific uuid
-    private void readData (String uuid, String macAddress, String requestID) {
+    private void readData (String uuid, String macAddress, String requestId) {
         BluetoothGattCharacteristic characteristic = deviceManager.getGATTCharacteristic(uuid, macAddress);
         final int charaProp = characteristic.getProperties();
         Log.d(LOG_TAG, "charaProp: " + charaProp);
@@ -446,7 +471,7 @@ public class DeviceScanConnActivity extends Activity {
                 Log.d(LOG_TAG, "False, Set notification by" + characteristic.getUuid());
                 mNotifyCharacteristic = null;
             }
-            mBluetoothLeService.readCharacteristic(characteristic, macAddress, requestID);
+            mBluetoothLeService.readCharacteristic(characteristic, macAddress, requestId);
             Log.d(LOG_TAG, "False, read by" + characteristic.getUuid());
         }
         if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
@@ -456,13 +481,15 @@ public class DeviceScanConnActivity extends Activity {
             Log.d(LOG_TAG, "True, Set notification by" + characteristic.getUuid());
         }
     }
-*/
+
     private static IntentFilter makeGattUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-        intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
+        intentFilter.addAction(BluetoothLeService.ACTION_DATA_READ);
+        intentFilter.addAction(BluetoothLeService.ACTION_DATA_WRITE);
+        intentFilter.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
         return intentFilter;
     }
 

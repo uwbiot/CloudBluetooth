@@ -20,8 +20,8 @@ import static com.example.bluetoothagent.IotClient.LOG_TAG;
 
 public class CallServerAPI {
     //private static final String POST_REG_URL = "http://cloudbluetooth.us-west-2.elasticbeanstalk.com/deviceRegister";
-    private static final String POST_REG_URL = "http://10.156.26.225:4000/register";
-    private static final String POST_AVAIL_URL = "http://10.156.26.225:4000/availableDevice";
+    private static final String POST_REG_URL = "http://192.168.1.14:4000/register";
+    //private static final String POST_AVAIL_URL = "http://192.168.1.14:4000/availableDevice";
     //private static final String agentID = AndroidDeviceUuid.getUuid();
     //private static final String POST_PARAMS = "{\"agentID\":\"" + agentID + "\"}";
 
@@ -58,8 +58,8 @@ public class CallServerAPI {
         }
         return response.toString();
     }
-
-    public static void availableDevice(TextView status){
+/*
+    public static void availableDevice(TextView status) {
         try {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
@@ -83,7 +83,7 @@ public class CallServerAPI {
             System.err.print(e);
         }
     }
-
+*/
     private static String getAndroidDeviceUUID (TextView status) {
         String agentID = AndroidDeviceUuid.getUuid();
         String POST_PARAMS = "{\"agentID\":\"" + agentID + "\"}";

@@ -10,4 +10,6 @@ import java.util.HashMap;
 
 public interface BLEAction {
      void execute(HashMap<String, BluetoothGatt> gattHashMap);
+     String getRequestId();
+     String getMacAddress();
 }

@@ -15,7 +15,7 @@ var createUserDefineTable = new CreateUserDefineTable();
 //create public table
 //createPublicTable.createTable();
 //createUserDefineTable.createTable();
-//serviceNameLookup.getAllServices();
+serviceNameLookup.getAllServices();
 
 setTimeout(() => {
     console.log("look up:");

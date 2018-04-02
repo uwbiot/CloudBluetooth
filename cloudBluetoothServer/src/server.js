@@ -33,7 +33,7 @@ app.use(function (req, res, next) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     res.setHeader('Access-Control-Allow-Credentials', true);
-    res.set("requestID", generateUUID());
+    res.setHeader("requestId", generateUUID());
     next();
 });
 
@@ -75,12 +75,11 @@ app.post('/register', (req, res) => {
         'dataRes': dataRes,
         'connDevice' : connDevice
     };
-    //res.sendStatus(200);
     res.send(topics);
     var subscribeTopics = [scanRes, connRes, dataRes, connDevice];
     iotManager.subscribeTopics(subscribeTopics);
 });
-
+/*
 app.post('/availableDevice', (req, res) => {
     var message = req.body;
     var agentID = message.agentID;
@@ -89,14 +88,20 @@ app.post('/availableDevice', (req, res) => {
     iotManager.scan(scanReq);
     res.sendStatus(200);
 });
-
-app.get('/devices', (req, res) => {
+*/
+app.get('/getDevices', (req, res) => {
     dynamoDBClient.scanAllAvailableDevices((data) => {
         res.send(data);
     });
 });
 
 app.post('/connect', (req, res) => {
+    var ip = req.headers['x-forwarded-for'] ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    console.log('ip of caller: ' + ip);
+    var requestId = res.get("requestId");
     var message = req.body;
     var agentID = message.agentID;
     var macAddress = message.macAddress;
@@ -106,21 +111,22 @@ app.post('/connect', (req, res) => {
             var items = serviceNameLookupSend(data.Item.services);
             res.send(items);
         } else {
-            iotManager.registerOnServiceDiscover((data) => {
+            iotManager.registerOnServiceDiscover(requestId, (data) => {
                 var items = serviceNameLookupSend(data);
                 res.send(items);
-                iotManager.unRegisterOnServiceDiscover();
+                iotManager.unRegisterOnServiceDiscover(requestId);
             });
-            iotManager.connect(macAddress, agentID + '/' + CONN_REQ);
+            iotManager.connect(macAddress, agentID + '/' + CONN_REQ, requestId);
         }
     });
 });
 
 app.post('/disconnect', (req, res) => {
+    var requestId = res.get("requestId");
     var message = req.body;
     var agentID = message.agentID;
     var macAddress = message.macAddress;
-    iotManager.disconnect(macAddress, agentID + '/' + DISCONN_REQ);
+    iotManager.disconnect(macAddress, agentID + '/' + DISCONN_REQ, requestId);
     dynamoDBClient.initialConnTime(agentID, macAddress);
     res.sendStatus(200);
 });
@@ -139,7 +145,6 @@ function serviceNameLookupSend(data) {
             })
             console.log(charas);
             var serviceName = serviceNameLookup.lookup(service.uuid);
-
             items.push({
                 uuid: service.uuid,
                 name: serviceName,
@@ -150,7 +155,7 @@ function serviceNameLookupSend(data) {
     }
 }
 
-app.post('/userdefineService', (req, res) => {
+app.post('/addUserDefineService', (req, res) => {
     var message = req.body;
     var serviceUUID = message.serviceUUID;
     var serviceName = message.serviceName;
@@ -158,44 +163,55 @@ app.post('/userdefineService', (req, res) => {
     res.sendStatus(200);
 });
 
-app.get('/publicServices', (req, res) => {
+app.post('/deleteUserDefineService', (req, res) => {
+    var message = req.body;
+    var serviceUUID = message.serviceUUID;
+    dynamoDBClient.deleteUserDefineService(serviceUUID);
+    res.sendStatus(200);
+});
+
+app.get('/getPublicServices', (req, res) => {
     dynamoDBClient.getAllPublicServices((data) => {
         res.send(data);
     });
 });
 
-app.get('/userDefineServices', (req, res) => {
+app.get('/getUserDefineServices', (req, res) => {
     dynamoDBClient.getAllUserDefineServices((data) => {
         res.send(data);
     });
 });
 
 app.post('/read', (req, res) => {
+    var requestId = res.get("requestId");
     var message = req.body;
     var chara = message.chara;
     var macAddress = message.macAddress;
     var agentID = message.agentID;
     var dataReq = agentID + '/' + DATA_REQ;
-    iotManager.registerOnDataReceived((data) => {
+    iotManager.registerOnDataReceived(requestId, (data) => {
         res.send(data);
-        iotManager.unRegisterOnDataReceived();
-    })
-    iotManager.readData(chara, macAddress, dataReq);
+        iotManager.unRegisterOnDataReceived(requestId);
+    });
+    iotManager.readData(chara, macAddress, dataReq, requestId);
 })
 
 app.post('/write', (req, res) => {
+    var requestId = res.get("requestId");
     var message = req.body;
     var chara = message.chara;
     var bytes = message.bytes;
     var macAddress = message.macAddress;
     var agentID = message.agentID;
     var dataReq = agentID + '/' + DATA_REQ;
-    iotManager.writeData(chara, bytes, macAddress, dataReq);
-    res.sendStatus(200);
+    iotManager.registerOnDataReceived(requestId, (data) => {
+        res.send(data);
+        iotManager.unRegisterOnDataReceived(requestId);
+    });
+    iotManager.writeData(chara, bytes, macAddress, dataReq, requestId);
 })
 
-
-//dynamoDBCreateTable.deleteTable();
+//dynamoDBCreateTable.createTable();
 //dynamoDBCreatePublicTable.createTable();
 //dynamoDBCreateUserTable.createTable();
 
@@ -206,5 +222,11 @@ app.post('/write', (req, res) => {
 //         console.log('receive scan');
 //     });
 // });
+
+process.on('uncaughtException', function (err) {
+    console.error(err.stack);
+    console.log("Node NOT Exiting...");
+});
+
 var port = process.env.PORT || 4000;
 http.listen(port, "0.0.0.0");

@@ -6,7 +6,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -15,12 +14,12 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -34,14 +33,28 @@ public class BluetoothLeService extends Service {
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private HashMap<String, BluetoothGatt> gattHashMap = new HashMap<>();
+    private HashMap<String, Integer> connStatusMap = new HashMap<>();
     private int mConnectionState = STATE_DISCONNECTED;
     private final Lock lock = new ReentrantLock();
     private LinkedList<BLEAction> actQueue;
-    private boolean curAction = false;
+    private bleAction curAction = null;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
+
+    public class bleAction {
+        public String requestId;
+        public boolean isFinished;
+        public int curTimeout;
+        public String macAddress;
+        public bleAction(String requestId, String macAddress) {
+            this.requestId = requestId;
+            this.isFinished = false;
+            this.curTimeout = 0;
+            this.macAddress = macAddress;
+        }
+    }
 
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
@@ -49,18 +62,26 @@ public class BluetoothLeService extends Service {
             "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
             "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
-    public final static String ACTION_DATA_AVAILABLE =
-            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
+    public final static String ACTION_DATA_READ =
+            "com.example.bluetooth.le.ACTION_DATA_READ";
+    public final static String ACTION_DATA_WRITE =
+            "com.example.bluetooth.le.ACTION_DATA_WRITE";
+    public final static String ACTION_DATA_NOTIFY =
+            "com.example.bluetooth.le.ACTION_DATA_NOTIFY";
     public final static String EXTRA_DATA =
             "com.example.bluetooth.le.EXTRA_DATA";
     public final static String UUID_DATA =
             "com.example.bluetooth.le.UUID_DATA";
     public final static String MAC_ADDRESS =
             "com.example.bluetooth.le.MAC_ADDRESS";
+    public final static String REQUEST_ID =
+            "com.example.bluetooth.le.REQUEST_ID";
+    public final static int GATT_TIMEOUT = 150;
 
-    private void broadcastUpdate(final String action, String macAddress) {
+    private void broadcastUpdate(final String action, String macAddress, String requestId) {
         final Intent intent = new Intent(action);
         intent.putExtra(MAC_ADDRESS, macAddress);
+        intent.putExtra(REQUEST_ID, new String(requestId));
         sendBroadcast(intent);
     }
 
@@ -70,10 +91,12 @@ public class BluetoothLeService extends Service {
     }
 
     private void broadcastUpdate(final String action,
-                                 final BluetoothGattCharacteristic characteristic, String macAddress) {
+                                 final BluetoothGattCharacteristic characteristic,
+                                 String macAddress, String requestId) {
         final Intent intent = new Intent(action);
         intent.putExtra(UUID_DATA, new String(characteristic.getUuid().toString()));
         intent.putExtra(MAC_ADDRESS, new String(macAddress));
+        intent.putExtra(REQUEST_ID, new String(requestId));
         // For all other profiles, writes the data formatted in HEX.
         final byte[] data = characteristic.getValue();
         if (data != null && data.length > 0) {
@@ -148,9 +171,14 @@ public class BluetoothLeService extends Service {
 
     private void executeQueue() {
         lock.lock();
-        if (curAction) {
+        if (curAction != null && !curAction.isFinished) {
             Log.d(TAG, "executeQueue, curAction running");
             try {
+                curAction.curTimeout++;
+                if (curAction.curTimeout > GATT_TIMEOUT) {
+                    Log.d(TAG, "current action timeout" + curAction.requestId);
+                    curAction.isFinished = true;
+                }
                 Thread.sleep(10, 0);
             } catch (InterruptedException e ) {
                 e.printStackTrace();
@@ -168,7 +196,7 @@ public class BluetoothLeService extends Service {
         }
         BLEAction bleAction = actQueue.removeFirst();
         bleAction.execute(gattHashMap);
-        curAction = true;
+        curAction = new bleAction(bleAction.getRequestId(), bleAction.getMacAddress());
         lock.unlock();
     }
 
@@ -189,12 +217,13 @@ public class BluetoothLeService extends Service {
      *         {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
      *         callback.
      */
-    public boolean connect(final String address) {
+    public boolean connect(final String address, String requestId) {
         if (mBluetoothAdapter == null || address == null) {
             Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
             return false;
         }
         // Previously connected device.  Try to reconnect.
+        /*
         if (gattHashMap.containsKey(address) && gattHashMap.get(address) != null) {
             Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
             if (gattHashMap.get(address).connect()) {
@@ -204,6 +233,7 @@ public class BluetoothLeService extends Service {
                 return false;
             }
         }
+        */
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
@@ -211,34 +241,45 @@ public class BluetoothLeService extends Service {
         }
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
-        BluetoothGattCallback mGattCallback = new MyBluetoothGattCallback(address) {
+        final BluetoothGattCallback mGattCallback = new MyBluetoothGattCallback(address) {
             @Override
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                 String intentAction;
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    intentAction = ACTION_GATT_CONNECTED;
-                    mConnectionState = STATE_CONNECTED;
-                    broadcastUpdate(intentAction, address);
-                    Log.i(TAG, "Connected to GATT server.");
-                    // Attempts to discover services after successful connection.
-                    BluetoothGatt mBluetoothGatt = gattHashMap.get(address);
-                    Log.i(TAG, "Attempting to start service discovery:" + mBluetoothGatt.discoverServices());
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    intentAction = ACTION_GATT_DISCONNECTED;
-                    mConnectionState = STATE_DISCONNECTED;
-                    Log.i(TAG, "Disconnected from GATT server.");
-                    gattHashMap.remove(address);
-                    broadcastUpdate(intentAction, address);
+
+                if(curAction != null && curAction.macAddress.equals(address)) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        intentAction = ACTION_GATT_CONNECTED;
+                        mConnectionState = STATE_CONNECTED;
+                        connStatusMap.put(address, mConnectionState);
+                        broadcastUpdate(intentAction, address, curAction.requestId);
+                        Log.i(TAG, "Connected to GATT server.");
+                        // Attempts to discover services after successful connection.
+                        BluetoothGatt mBluetoothGatt = gattHashMap.get(address);
+                        Log.i(TAG, "Attempting to start service discovery:" + mBluetoothGatt.discoverServices());
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        intentAction = ACTION_GATT_DISCONNECTED;
+                        mConnectionState = STATE_DISCONNECTED;
+                        Log.i(TAG, "Disconnected from GATT server.");
+                        gattHashMap.remove(address);
+                        broadcastUpdate(intentAction, address, curAction.requestId);
+                        connStatusMap.put(address, mConnectionState);
+                        curAction.isFinished = true;
+                    }
+                }
+                else
+                {
+                    Log.i(TAG, "curAction is null or address mismatch");
                 }
             }
 
             @Override
             public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, address);
+                    broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, address, curAction.requestId);
                 } else {
                     Log.w(TAG, "onServicesDiscovered received: " + status);
                 }
+                curAction.isFinished = true;
             }
 
             @Override
@@ -246,11 +287,11 @@ public class BluetoothLeService extends Service {
                                               BluetoothGattCharacteristic characteristic,
                                               int status) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    curAction = false;
-                    //broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, address);
+                    broadcastUpdate(ACTION_DATA_WRITE, characteristic, address, curAction.requestId);
                 } else {
                     Log.w(TAG, "onCharacteristicWrite: " + status);
                 }
+                curAction.isFinished = true;
             }
 
             @Override
@@ -258,23 +299,41 @@ public class BluetoothLeService extends Service {
                                              BluetoothGattCharacteristic characteristic,
                                              int status) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    curAction = false;
-                    broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, address);
+                    broadcastUpdate(ACTION_DATA_READ, characteristic, address, curAction.requestId);
                 } else {
                     Log.w(TAG, "onCharacteristicRead: " + status);
                 }
+                curAction.isFinished = true;
             }
 
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt,
                                                 BluetoothGattCharacteristic characteristic) {
-                curAction = false;
-                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, address);
+                broadcastUpdate(ACTION_DATA_NOTIFY, characteristic, address, curAction.requestId);
+                curAction.isFinished = true;
             }
         };
 
-        BluetoothGatt mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
-        gattHashMap.put(address, mBluetoothGatt);
+        BLEAction bleAction = new ConnectAction(requestId, address){
+            @Override
+            public void execute(HashMap<String, BluetoothGatt> gattHashMap) {
+                if (connStatusMap.containsKey(address) &&
+                        connStatusMap.get(address) == STATE_CONNECTED) {
+                    broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, address, curAction.requestId);
+                } else if (connStatusMap.containsKey(address) && gattHashMap.containsKey(address) &&
+                        connStatusMap.get(address) == STATE_DISCONNECTED) {
+                    Log.w(TAG,"start reconnecting..");
+                    gattHashMap.get(address).connect();
+                } else {
+                    BluetoothGatt mBluetoothGatt = device.connectGatt(BluetoothLeService.this, false, mGattCallback);
+                    gattHashMap.put(address, mBluetoothGatt);
+                }
+            }
+        };
+        addActionToQueue(bleAction);
+
+       // BluetoothGatt mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+       // gattHashMap.put(address, mBluetoothGatt);
         Log.d(TAG, "Trying to create a new connection to address : " + address);
         return true;
     }
@@ -282,20 +341,59 @@ public class BluetoothLeService extends Service {
     /**
      * Disconnects an existing connection or cancel a pending connection.
      *
-     * @param address The device address of the destination device.
+     * @param requestId The requestId of this request.
+     * @param macAddress The device address of the destination device.
      *
      *  The disconnection result is reported asynchronously through the
      * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
      * callback.
      */
-    public void disconnect(String address) {
-        if (mBluetoothAdapter == null || !gattHashMap.containsKey(address)) {
+    public void disconnect(final String macAddress, String requestId) {
+        if (mBluetoothAdapter == null || !gattHashMap.containsKey(macAddress)) {
             Log.w(TAG, "BluetoothAdapter for this device not initialized");
             return;
         }
+        BLEAction bleAction = new DisconnectAction(requestId, macAddress) {
+            @Override
+            public void execute(HashMap<String, BluetoothGatt> gattHashMap) {
+                BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
+                if(mBluetoothGatt != null) {
+                    gattHashMap.remove(macAddress);
+                    connStatusMap.remove(macAddress);
+                    mBluetoothGatt.disconnect();
+                    mBluetoothGatt = null;
+                }
+                curAction.isFinished = true;
+            }
+        };
+        addActionToQueue(bleAction);
+        /*
         BluetoothGatt mBluetoothGatt = gattHashMap.get(address);
         if(mBluetoothGatt != null) {
             gattHashMap.remove(address);
+            mBluetoothGatt.disconnect();
+            mBluetoothGatt = null;
+        }
+        */
+    }
+
+    /**
+     * Disconnects an existing connection or cancel a pending connection, used for onDestroy.
+     *
+     * @param macAddress The device address of the destination device.
+     *
+     *  The disconnection result is reported asynchronously through the
+     * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
+     * callback.
+     */
+    public void disconnect(String macAddress) {
+        if (mBluetoothAdapter == null || !gattHashMap.containsKey(macAddress)) {
+            Log.w(TAG, "BluetoothAdapter for this device not initialized");
+            return;
+        }
+        BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
+        if(mBluetoothGatt != null) {
+            gattHashMap.remove(macAddress);
             mBluetoothGatt.disconnect();
             mBluetoothGatt = null;
         }
@@ -324,20 +422,20 @@ public class BluetoothLeService extends Service {
      * @param characteristic The characteristic to read from.
      */
     public void readCharacteristic(BluetoothGattCharacteristic characteristic,
-                                   String macAddress, String requestID) {
+                                   String macAddress, String requestId) {
         BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
         /* to do call factory create method, put in the queue*/
-        BLEAction bleAction = BLEActionFactory.getReadAction(characteristic, requestID, macAddress);
+        BLEAction bleAction = BLEActionFactory.getReadAction(characteristic, requestId, macAddress);
         addActionToQueue(bleAction);
         //mBluetoothGatt.readCharacteristic(characteristic);
     }
 
     public void writeCharacteristic(BluetoothGattCharacteristic characteristic, byte[] b,
-                                    String macAddress, String requestID) {
+                                    String macAddress, String requestId) {
         BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
@@ -345,14 +443,14 @@ public class BluetoothLeService extends Service {
         }
         characteristic.setValue(b);
         /* to do call factory create method, put in the queue*/
-        BLEAction bleAction = BLEActionFactory.getWriteAction(characteristic, requestID, macAddress);
+        BLEAction bleAction = BLEActionFactory.getWriteAction(characteristic, requestId, macAddress);
         addActionToQueue(bleAction);
         //mBluetoothGatt.writeCharacteristic(characteristic);
 
     }
 
     public void writeCharacteristic(BluetoothGattCharacteristic characteristic, byte b,
-                                    String macAddress, String requestID) {
+                                    String macAddress, String requestId) {
         BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
@@ -362,7 +460,7 @@ public class BluetoothLeService extends Service {
         val[0] = b;
         characteristic.setValue(val);
         /* to do call factory create method, put in the queue*/
-        BLEAction bleAction = BLEActionFactory.getWriteAction(characteristic, requestID, macAddress);
+        BLEAction bleAction = BLEActionFactory.getWriteAction(characteristic, requestId, macAddress);
         addActionToQueue(bleAction);
         //mBluetoothGatt.writeCharacteristic(characteristic);
     }

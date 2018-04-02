@@ -10,14 +10,14 @@ import java.util.HashMap;
  * Created by wei on 3/18/18.
  */
 
-public class ReadAction implements BLEAction{
+public class ReadAction implements BLEAction {
     private BluetoothGattCharacteristic characteristic;
-    private String requestID;
+    private String requestId;
     private String macAddress;
 
-    public ReadAction(BluetoothGattCharacteristic characteristic, String requestID, String macAddress) {
+    public ReadAction(BluetoothGattCharacteristic characteristic, String requestId, String macAddress) {
         this.characteristic = characteristic;
-        this.requestID = requestID;
+        this.requestId = requestId;
         this.macAddress = macAddress;
     }
 
@@ -27,4 +27,12 @@ public class ReadAction implements BLEAction{
             gattHashMap.get(this.macAddress).readCharacteristic(characteristic);
         }
     }
+
+    @Override
+    public String getRequestId() {
+        return this.requestId;
+    }
+
+    @Override
+    public String getMacAddress() {return this.macAddress;}
 }

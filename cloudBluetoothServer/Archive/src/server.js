@@ -1,27 +1,123 @@
+var express = require('express');
+var bodyParser = require('body-parser');
+var app = express();
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
+const IotManager = require('./device.js');
 const DynamoDBClient = require('./DynamoDBClient.js');
-
-const CreatePublicTable = require('./PublicServiceMapTableCreate.js');
-const CreateUserDefineTable = require('./UserDefineServiceMapTableCreate.js');
-
+const DynamoDBCreateTable = require('./DevicesCreateTable.js');
+const DynamoDBCreatePublicTable = require('./PublicServiceMapTableCreate');
+const DynamoDBCreateUserTable = require('./UserDefineServiceMapTableCreate');
 const ServiceNameLookup = require('./ServiceNameLookup.js');
 
-var serviceNameLookup = new ServiceNameLookup();
+app.use(express.static(__dirname));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended: false}));
 
+app.use(function (req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    next();
+});
 
+var iotManager = new IotManager();
 var dynamoDBClient = new DynamoDBClient();
-var createPublicTable = new CreatePublicTable();
-var createUserDefineTable = new CreateUserDefineTable();
+var dynamoDBCreateTable = new DynamoDBCreateTable();
+var dynamoDBCreatePublicTable = new DynamoDBCreatePublicTable();
+var dynamoDBCreateUserTable = new DynamoDBCreateUserTable();
+var serviceNameLookup = new ServiceNameLookup();
+serviceNameLookup.getAllServices();
 
-//create public table
-//createPublicTable.createTable();
-//createUserDefineTable.createTable();
-//serviceNameLookup.getAllServices();
+app.post('/deviceRegister', (req, res) => {
+    var message = req.body;
+    var agentID = message.agentID;
+    console.log(agentID);
+    iotManager.scan(agentID);
+    res.sendStatus(200);
+});
 
-setTimeout(() => {
-    console.log("look up:");
-    console.log(serviceNameLookup.lookup("0000180d-0000-1000-8000-00805f9b34fb"));
+app.get('/devices', (req, res) => {
+    dynamoDBClient.scanAllDevices((data) => {
+        res.send(data);
+    });
+});
 
-}, 2000);
+app.post('/services', (req, res) => {
+    var message = req.body;
+    var agentID = message.agentID;
+    var macAddress = message.macAddress;
+
+    iotManager.registerOnServiceDiscover((data) => {
+        var items = [];
+        if(data && data.forEach) {
+            data.forEach(service => {
+                var charas = [];
+                service.charas.forEach(chara => {
+                    var charaName = serviceNameLookup.lookup(chara.uuid);
+                    charas.push({
+                        uuid: chara.uuid,
+                        name: charaName
+                    });
+                })
+                console.log(charas);
+                var serviceName = serviceNameLookup.lookup(service.uuid);
+                
+                items.push({
+                    uuid: service.uuid,
+                    name: serviceName,
+                    charas: charas
+                })
+            });
+            res.send(items);
+        }
+        iotManager.unRegisterOnServiceDiscover();
+    });
+    iotManager.connect(agentID, macAddress);
+});
+
+app.post('/userdefineService', (req, res) => {
+    var message = req.body;
+    var serviceUUID = message.serviceUUID;
+    var serviceName = message.serviceName;
+    dynamoDBClient.putUserDefineService(serviceUUID, serviceName);
+});
+
+app.get('/publicServices', (req, res) => {
+    dynamoDBClient.getAllPublicServices((data) => {
+        res.send(data);
+    });
+});
+
+app.get('/userDefineServices', (req, res) => {
+    dynamoDBClient.getAllUserDefineServices((data) => {
+        res.send(data);
+    });
+});
+
+app.post('/read', (req, res) => {
+    var message = req.body;
+    var chara = message.chara;
+    iotManager.registerOnDataReceived((data) => {
+        res.send(data);
+        iotManager.unRegisterOnDataReceived();
+    })
+    iotManager.readData(chara);
+})
+
+app.post('/write', (req, res) => {
+    var message = req.body;
+    var chara = message.chara;
+    var bytes = message.bytes;
+    iotManager.writeData(chara, bytes);
+    res.sendStatus(200);
+})
+
+
+dynamoDBCreateTable.createTable();
+dynamoDBCreatePublicTable.createTable();
+dynamoDBCreateUserTable.createTable();
 
 
 // public services
@@ -39,7 +135,7 @@ dynamoDBClient.putPublicService("00001801-0000-1000-8000-00805f9b34fb", "Generic
 dynamoDBClient.putPublicService("00002800-0000-1000-8000-00805f9b34fb", "Primary Service");
 dynamoDBClient.putPublicService("00002801-0000-1000-8000-00805f9b34fb", "Secondary Service");
 dynamoDBClient.putPublicService("00002802-0000-1000-8000-00805f9b34fb", "Include");
-dynamoDBClient.putPublicService("00002803-0000-1000-8000-00805f9b34fb", "Characteristic"); 
+dynamoDBClient.putPublicService("00002803-0000-1000-8000-00805f9b34fb", "Characteristic");
 
 // GATT Descriptors 
 dynamoDBClient.putPublicService("00002900-0000-1000-8000-00805f9b34fb", "Characteristic Extended Properties");
@@ -50,7 +146,7 @@ dynamoDBClient.putPublicService("00002904-0000-1000-8000-00805f9b34fb", "Charact
 dynamoDBClient.putPublicService("00002905-0000-1000-8000-00805f9b34fb", "Characteristic Aggregate Format");
 dynamoDBClient.putPublicService("00002906-0000-1000-8000-00805f9b34fb", "Valid Range");
 dynamoDBClient.putPublicService("00002907-0000-1000-8000-00805f9b34fb", "External Report Reference Descriptor");
-dynamoDBClient.putPublicService("00002908-0000-1000-8000-00805f9b34fb", "Report Reference Descriptor"); 
+dynamoDBClient.putPublicService("00002908-0000-1000-8000-00805f9b34fb", "Report Reference Descriptor");
 
 // GATT Characteristics 
 dynamoDBClient.putPublicService("00002a00-0000-1000-8000-00805f9b34fb", "Device Name");
@@ -58,7 +154,7 @@ dynamoDBClient.putPublicService("00002a01-0000-1000-8000-00805f9b34fb", "Appeara
 dynamoDBClient.putPublicService("00002a02-0000-1000-8000-00805f9b34fb", "Peripheral Privacy Flag");
 dynamoDBClient.putPublicService("00002a03-0000-1000-8000-00805f9b34fb", "Reconnection Address");
 dynamoDBClient.putPublicService("00002a04-0000-1000-8000-00805f9b34fb", "PPCP");
-dynamoDBClient.putPublicService("00002a05-0000-1000-8000-00805f9b34fb", "Service Changed"); 
+dynamoDBClient.putPublicService("00002a05-0000-1000-8000-00805f9b34fb", "Service Changed");
 
 // GATT Service UUIDs 
 dynamoDBClient.putPublicService("00001802-0000-1000-8000-00805f9b34fb", "Immediate Alert");
@@ -77,7 +173,7 @@ dynamoDBClient.putPublicService("0000180f-0000-1000-8000-00805f9b34fb", "Battery
 dynamoDBClient.putPublicService("00001810-0000-1000-8000-00805f9b34fb", "Blood Pressure");
 dynamoDBClient.putPublicService("00001811-0000-1000-8000-00805f9b34fb", "Alert Notification Service");
 dynamoDBClient.putPublicService("00001812-0000-1000-8000-00805f9b34fb", "Human Interface Device");
-dynamoDBClient.putPublicService("00001813-0000-1000-8000-00805f9b34fb", "Scan Parameters"); 
+dynamoDBClient.putPublicService("00001813-0000-1000-8000-00805f9b34fb", "Scan Parameters");
 dynamoDBClient.putPublicService("00001814-0000-1000-8000-00805f9b34fb", "Running Speed and Cadence");
 dynamoDBClient.putPublicService("00001816-0000-1000-8000-00805f9b34fb", "Cycling Speed and Cadence");
 dynamoDBClient.putPublicService("00001818-0000-1000-8000-00805f9b34fb", "Cycling Power");
@@ -95,7 +191,7 @@ dynamoDBClient.putPublicService("00002a0e-0000-1000-8000-00805f9b34fb", "Time Zo
 dynamoDBClient.putPublicService("00002a0f-0000-1000-8000-00805f9b34fb", "Local Time Information");
 dynamoDBClient.putPublicService("00002a11-0000-1000-8000-00805f9b34fb", "Time with DST");
 dynamoDBClient.putPublicService("00002a12-0000-1000-8000-00805f9b34fb", "Time Accuracy");
-dynamoDBClient.putPublicService("00002a13-0000-1000-8000-00805f9b34fb", "Time Source"); 
+dynamoDBClient.putPublicService("00002a13-0000-1000-8000-00805f9b34fb", "Time Source");
 dynamoDBClient.putPublicService("00002a14-0000-1000-8000-00805f9b34fb", "Reference Time Information");
 dynamoDBClient.putPublicService("00002a16-0000-1000-8000-00805f9b34fb", "Time Update Control Point");
 dynamoDBClient.putPublicService("00002a17-0000-1000-8000-00805f9b34fb", "Time Update State");
@@ -113,7 +209,7 @@ dynamoDBClient.putPublicService("00002a26-0000-1000-8000-00805f9b34fb", "Firmwar
 dynamoDBClient.putPublicService("00002a27-0000-1000-8000-00805f9b34fb", "Hardware Revision String");
 dynamoDBClient.putPublicService("00002a28-0000-1000-8000-00805f9b34fb", "Software Revision String");
 dynamoDBClient.putPublicService("00002a29-0000-1000-8000-00805f9b34fb", "Manufacturer Name String");
-dynamoDBClient.putPublicService("00002a2a-0000-1000-8000-00805f9b34fb", "IEEE 11073-20601 Regulatory Certification Data List"); 
+dynamoDBClient.putPublicService("00002a2a-0000-1000-8000-00805f9b34fb", "IEEE 11073-20601 Regulatory Certification Data List");
 dynamoDBClient.putPublicService("00002a2b-0000-1000-8000-00805f9b34fb", "Current Time");
 dynamoDBClient.putPublicService("00002a31-0000-1000-8000-00805f9b34fb", "Scan Refresh");
 dynamoDBClient.putPublicService("00002a32-0000-1000-8000-00805f9b34fb", "Boot Keyboard Output Report");
@@ -129,7 +225,7 @@ dynamoDBClient.putPublicService("00002a3f-0000-1000-8000-00805f9b34fb", "Alert S
 dynamoDBClient.putPublicService("00002a40-0000-1000-8000-00805f9b34fb", "Ringer Control Point");
 dynamoDBClient.putPublicService("00002a41-0000-1000-8000-00805f9b34fb", "Ringer Setting");
 dynamoDBClient.putPublicService("00002a42-0000-1000-8000-00805f9b34fb", "Alert Category ID Bit Mask");
-dynamoDBClient.putPublicService("00002a43-0000-1000-8000-00805f9b34fb", "Alert Category ID"); 
+dynamoDBClient.putPublicService("00002a43-0000-1000-8000-00805f9b34fb", "Alert Category ID");
 dynamoDBClient.putPublicService("00002a44-0000-1000-8000-00805f9b34fb", "Alert Notification Control Point");
 dynamoDBClient.putPublicService("00002a45-0000-1000-8000-00805f9b34fb", "Unread Alert Status");
 dynamoDBClient.putPublicService("00002a46-0000-1000-8000-00805f9b34fb", "New Alert");
@@ -145,7 +241,7 @@ dynamoDBClient.putPublicService("00002a4f-0000-1000-8000-00805f9b34fb", "Scan In
 dynamoDBClient.putPublicService("00002a50-0000-1000-8000-00805f9b34fb", "PnP ID");
 dynamoDBClient.putPublicService("00002a51-0000-1000-8000-00805f9b34fb", "Glucose Feature");
 dynamoDBClient.putPublicService("00002a52-0000-1000-8000-00805f9b34fb", "Record Access Control Point");
-dynamoDBClient.putPublicService("00002a53-0000-1000-8000-00805f9b34fb", "RSC Measurement"); 
+dynamoDBClient.putPublicService("00002a53-0000-1000-8000-00805f9b34fb", "RSC Measurement");
 dynamoDBClient.putPublicService("00002a54-0000-1000-8000-00805f9b34fb", "RSC Feature");
 dynamoDBClient.putPublicService("00002a55-0000-1000-8000-00805f9b34fb", "SC Control Point");
 dynamoDBClient.putPublicService("00002a5b-0000-1000-8000-00805f9b34fb", "CSC Measurement");
@@ -199,3 +295,12 @@ dynamoDBClient.putUserDefineService("f000aa64-0451-4000-b000-000000000000", "Tes
 dynamoDBClient.putUserDefineService("f000aa65-0451-4000-b000-000000000000", "Test Data");
 dynamoDBClient.putUserDefineService("0000ffe0-0000-1000-8000-00805f9b34fb", "Key Service");
 dynamoDBClient.putUserDefineService("0000ffe1-0000-1000-8000-00805f9b34fb", "Key Data");
+
+// io.on('connection', (socket) => {
+//     socket.on('scandevice', (msg) =>{
+//         iotManger.scan();
+//         console.log('receive scan');
+//     });
+// });
+var port = process.env.PORT || 4000;
+http.listen(port, "0.0.0.0");

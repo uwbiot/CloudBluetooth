@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 class WriteData extends Component {
     constructor(props) {
         super(props);
-        this.state = { uuid: props.uuid, error: '' , input:''};
+        this.state = { uuid: props.uuid, error: '' , input:'', data : ''};
     }
 
     render() {
@@ -11,6 +11,7 @@ class WriteData extends Component {
             <div>
                 <input type = "text" onChange = {this.onchange.bind(this)} />
                 <button type = "button" onClick = {this.onWriteClick.bind(this)}>Write</button>
+                {this.state.data}
             </div>
         );
     }
@@ -22,6 +23,7 @@ class WriteData extends Component {
     onWriteClick(event) {
         //var endpoint = "/write";
         var endpoint = "http://localhost:4000/write";
+        var component = this;
         fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -34,9 +36,17 @@ class WriteData extends Component {
                 macAddress: this.props.macAddress,
                 agentID: this.props.agentID
             })
-        }).catch(function (ex) {
-            console.log('parsing failed', ex)
-        })
+        }).then(function (response) {
+            return response.json();
+            }).then(function (json) {
+                if (json) {
+                    component.setState({ data: json.status });
+                } else {
+                    component.setState({ error: "The response is invalid" });
+                }
+            }).catch(function (ex) {
+                console.log('parsing failed', ex);
+            })
     }
 }
 

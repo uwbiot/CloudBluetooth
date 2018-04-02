@@ -43,7 +43,8 @@ public class Messaging {
         return object.toString();
     }
 
-    public static String writeDataJSON(GATTMessageType type, String value, String uuid, String macAddress) {
+    public static String writeDataJSON(GATTMessageType type, String value,
+                                       String uuid, String macAddress, String requestId) {
         JSONObject object = new JSONObject();
         try {
             object.put("type", type);
@@ -51,31 +52,52 @@ public class Messaging {
             object.put("uuid", uuid);
             object.put("macAddress", macAddress);
             object.put("agentID", AndroidDeviceUuid.getUuid());
+            object.put("requestId", requestId);
         } catch (JSONException e) {
             e.printStackTrace();
         }
         return object.toString();
     }
 
-    public static String writeServiceJSON(GATTMessageType type, String value, String macAddress) {
+    public static String writeDataJSON(GATTMessageType type,
+                                       String uuid, String macAddress, String requestId) {
+        JSONObject object = new JSONObject();
+        try {
+            object.put("type", type);
+            object.put("uuid", uuid);
+            object.put("macAddress", macAddress);
+            object.put("agentID", AndroidDeviceUuid.getUuid());
+            object.put("requestId", requestId);
+            object.put("status", "success");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return object.toString();
+    }
+
+    public static String writeServiceJSON(GATTMessageType type, String value,
+                                          String macAddress, String requestId) {
         JSONObject object = new JSONObject();
         try {
             object.put("type", type);
             object.put("value", value);
             object.put("agentID", AndroidDeviceUuid.getUuid());
             object.put("macAddress", macAddress);
+            object.put("requestId", requestId);
         } catch (JSONException e) {
             e.printStackTrace();
         }
         return object.toString();
     }
 
-    public static String writeServiceJSON(GATTMessageType type, List<BluetoothGattService> gattServices, String macAddress) {
+    public static String writeServiceJSON(GATTMessageType type, List<BluetoothGattService> gattServices,
+                                          String macAddress, String requestId) {
         JSONObject object = new JSONObject();
         try {
             object.put("type", type);
             object.put("agentID", AndroidDeviceUuid.getUuid());
             object.put("macAddress", macAddress);
+            object.put("requestId", requestId);
             JSONArray myBLEServiceList = new JSONArray();
             for (BluetoothGattService gattService : gattServices) {
                 List<BluetoothGattCharacteristic> gattCharacteristics =

@@ -17,7 +17,7 @@ public class DataMessage {
     public String uuid;
     public byte[] bytes;
     public String macAddress;
-    public String requestID;
+    public String requestId;
 
     public DataMessage(String message) {
         try {
@@ -25,7 +25,11 @@ public class DataMessage {
             type = MessageType.valueOf(json.getString("messageType"));
             this.uuid = json.getString("uuid");
             this.macAddress = json.getString("macAddress");
-            this.requestID = json.getString("requestID");
+            if (!json.isNull("requestId")) {
+                this.requestId = json.getString("requestId");
+            } else {
+                this.requestId = "12";
+            }
            // this.bytes = json.getString("bytes").getBytes();
             if(!json.isNull("bytes")) {
                 this.bytes = Base64.decode(json.getString("bytes"), Base64.DEFAULT);

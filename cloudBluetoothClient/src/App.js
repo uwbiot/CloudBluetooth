@@ -43,7 +43,7 @@ class App extends Component {
 
   fetchDeviceInfo() {
     //var endpoint = "/devices";
-    var endpoint = "http://localhost:4000/devices"
+    var endpoint = "http://localhost:4000/getDevices"
 
     var component = this;
     fetch(endpoint)

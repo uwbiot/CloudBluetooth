@@ -1,30 +1,27 @@
 package com.example.bluetoothagent;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattCallback;
 
 import java.util.HashMap;
 
 /**
- * Created by wei on 3/18/18.
+ * Created by wei on 3/29/18.
  */
 
-public class WriteAction implements BLEAction {
-    private BluetoothGattCharacteristic characteristic;
+public class ConnectAction implements BLEAction {
     private String requestId;
     private String macAddress;
 
-    public WriteAction(BluetoothGattCharacteristic characteristic, String requestId, String macAddress) {
-        this.characteristic = characteristic;
+
+    public ConnectAction(String requestId, String macAddress) {
         this.requestId = requestId;
         this.macAddress = macAddress;
     }
-
     @Override
     public void execute(HashMap<String, BluetoothGatt> gattHashMap) {
-        if(gattHashMap.containsKey(this.macAddress)) {
-            gattHashMap.get(this.macAddress).writeCharacteristic(characteristic);
-        }
     }
 
     @Override

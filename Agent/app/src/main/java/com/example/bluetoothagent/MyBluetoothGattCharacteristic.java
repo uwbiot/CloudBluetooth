@@ -9,8 +9,7 @@ import org.json.JSONObject;
 
 public class MyBluetoothGattCharacteristic {
     public String uuid;
-    public MyBluetoothGattCharacteristic(String uuid)
-    {
+    public MyBluetoothGattCharacteristic(String uuid) {
         this.uuid = uuid;
     }
 

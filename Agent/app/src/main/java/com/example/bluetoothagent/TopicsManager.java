@@ -18,6 +18,8 @@ public class TopicsManager {
         if(this.topicMessage == null) {
             String message = CallServerAPI.registerDevice(textView);
             this.topicMessage = new TopicMessage(message);
+            textView.append("agentID key is " + this.topicMessage.agentIDKey);
+            //textView.append("topic connres: " + this.topicMessage.conn_res);
         }
         return this.topicMessage;
     }

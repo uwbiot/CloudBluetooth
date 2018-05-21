@@ -1,10 +1,4 @@
 var AWS = require("aws-sdk");
-/*
-AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
-});
-*/
 
 AWS.config.update({
     region: "us-west-2"
@@ -13,7 +7,7 @@ AWS.config.update({
 var dynamodb = new AWS.DynamoDB();
 
 var params = {
-    TableName: "userDefineServices",
+    TableName: "publicServices",
     KeySchema: [
         { AttributeName: "serviceUUID", KeyType: "HASH" },  //Partition key
         //{ AttributeName: "serviceName", KeyType: "RANGE" } //Sort key
@@ -28,11 +22,11 @@ var params = {
     }
 };
 
-function CreateUserDefineServiceTable() {
+function publicServiceTable() {
 
 }
 
-CreateUserDefineServiceTable.prototype.createTable = function () {
+publicServiceTable.prototype.createTable = function () {
     dynamodb.createTable(params, function (err, data) {
         if (err) {
             console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
@@ -41,5 +35,19 @@ CreateUserDefineServiceTable.prototype.createTable = function () {
         }
     });
 }
-module.exports = CreateUserDefineServiceTable;
+
+publicServiceTable.prototype.deleteTable = function() {
+    var params = {
+        TableName: "publicServices"
+    };
+    dynamodb.deleteTable(params, function (err, data) {
+        if (err) {
+            console.error("Unable to delete table. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Deleted table. Table description JSON:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+module.exports = publicServiceTable;
 

@@ -15,6 +15,7 @@ public class TopicMessage {
     public String data_req;
     public String data_res;
     public String conn_device;
+    public String agentIDKey;
 
     public TopicMessage(String message) {
         try {
@@ -27,6 +28,7 @@ public class TopicMessage {
             this.data_req = json.getString("dataReq");
             this.data_res = json.getString("dataRes");
             this.conn_device = json.getString("connDevice");
+            this.agentIDKey = json.getString("agentIDKey");
         } catch (Exception e) {
             e.printStackTrace();
         }

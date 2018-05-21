@@ -1,10 +1,4 @@
 var AWS = require("aws-sdk");
-/*
-AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
-});
-*/
 
 AWS.config.update({
     region: "us-west-2"
@@ -13,26 +7,39 @@ AWS.config.update({
 var dynamodb = new AWS.DynamoDB();
 
 var params = {
-    TableName: "publicServices",
+    TableName: "AgentIDKeyMap",
     KeySchema: [
-        { AttributeName: "serviceUUID", KeyType: "HASH" },  //Partition key
-        //{ AttributeName: "serviceName", KeyType: "RANGE" } //Sort key
+        { AttributeName: "agentID", KeyType: "HASH" },  //Partition key
     ],
     AttributeDefinitions: [
-        { AttributeName: "serviceUUID", AttributeType: "S" },
-        //{ AttributeName: "serviceName", AttributeType: "S" }
+        { AttributeName: "agentID", AttributeType: "S" },
+        { AttributeName: "agentKey", AttributeType: "S" }
     ],
     ProvisionedThroughput: {
         ReadCapacityUnits: 10,
         WriteCapacityUnits: 10
-    }
+    },
+    GlobalSecondaryIndexes: [
+        {
+            IndexName: "key2AgentID",
+            KeySchema: [
+                { AttributeName: "agentKey", KeyType: "HASH" } // partition key
+            ],
+            Projection: {
+                ProjectionType: "ALL"
+            },
+            ProvisionedThroughput: {
+                ReadCapacityUnits: 1,
+                WriteCapacityUnits: 1
+            }
+        }
+    ]
 };
 
-function CreatePublicServiceTable() {
-
+function agentIDKeyMapTable() {
 }
 
-CreatePublicServiceTable.prototype.createTable = function () {
+agentIDKeyMapTable.prototype.createTable = function () {
     dynamodb.createTable(params, function (err, data) {
         if (err) {
             console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
@@ -42,12 +49,10 @@ CreatePublicServiceTable.prototype.createTable = function () {
     });
 }
 
-CreatePublicServiceTable.prototype.deleteTable = function() {
-
+agentIDKeyMapTable.prototype.deleteTable = function () {
     var params = {
-        TableName: "publicServices"
+        TableName: "AgentIDKeyMap"
     };
-
     dynamodb.deleteTable(params, function (err, data) {
         if (err) {
             console.error("Unable to delete table. Error JSON:", JSON.stringify(err, null, 2));
@@ -57,5 +62,4 @@ CreatePublicServiceTable.prototype.deleteTable = function() {
     });
 }
 
-module.exports = CreatePublicServiceTable;
-
+module.exports = agentIDKeyMapTable;

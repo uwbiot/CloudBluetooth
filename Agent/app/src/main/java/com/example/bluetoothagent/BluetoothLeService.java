@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -195,6 +197,9 @@ public class BluetoothLeService extends Service {
             return;
         }
         BLEAction bleAction = actQueue.removeFirst();
+        Long tsLong = System.currentTimeMillis();
+        String ts = tsLong.toString();
+        Log.d("start reading message ",  " ts: " + ts);
         bleAction.execute(gattHashMap);
         curAction = new bleAction(bleAction.getRequestId(), bleAction.getMacAddress());
         lock.unlock();
@@ -265,9 +270,7 @@ public class BluetoothLeService extends Service {
                         connStatusMap.put(address, mConnectionState);
                         curAction.isFinished = true;
                     }
-                }
-                else
-                {
+                } else {
                     Log.i(TAG, "curAction is null or address mismatch");
                 }
             }
@@ -299,6 +302,9 @@ public class BluetoothLeService extends Service {
                                              BluetoothGattCharacteristic characteristic,
                                              int status) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Long tsLong = System.currentTimeMillis();
+                    String ts = tsLong.toString();
+                    Log.d("getting message ", "requestId: " + curAction.requestId + " ts: " + ts);
                     broadcastUpdate(ACTION_DATA_READ, characteristic, address, curAction.requestId);
                 } else {
                     Log.w(TAG, "onCharacteristicRead: " + status);
@@ -309,8 +315,9 @@ public class BluetoothLeService extends Service {
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt,
                                                 BluetoothGattCharacteristic characteristic) {
-                broadcastUpdate(ACTION_DATA_NOTIFY, characteristic, address, curAction.requestId);
-                curAction.isFinished = true;
+                Log.w(TAG, "onCharacteristicChange: " + characteristic.getValue());
+                //broadcastUpdate(ACTION_DATA_NOTIFY, characteristic, address, curAction.requestId);
+                //curAction.isFinished = true;
             }
         };
 
@@ -478,6 +485,16 @@ public class BluetoothLeService extends Service {
             return;
         }
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+        UUID uuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(uuid);
+
+        if(descriptor == null)
+        {
+            return;
+        }
+        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        mBluetoothGatt.writeDescriptor(descriptor);
+        Log.w(TAG, "Bluetooth descriptor written!!!");
     }
 
     /**

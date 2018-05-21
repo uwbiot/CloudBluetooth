@@ -1,10 +1,4 @@
 var AWS = require("aws-sdk");
-/*
-AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
-});
-*/
 
 AWS.config.update({
     region: "us-west-2"
@@ -28,11 +22,10 @@ var params = {
     }
 };
 
-function CreateUserDefineServiceTable() {
-
+function userDefineServiceTable() {
 }
 
-CreateUserDefineServiceTable.prototype.createTable = function () {
+userDefineServiceTable.prototype.createTable = function () {
     dynamodb.createTable(params, function (err, data) {
         if (err) {
             console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
@@ -41,5 +34,5 @@ CreateUserDefineServiceTable.prototype.createTable = function () {
         }
     });
 }
-module.exports = CreateUserDefineServiceTable;
+module.exports = userDefineServiceTable;
 

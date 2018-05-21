@@ -30,8 +30,8 @@ var params = {
         {
             IndexName: "IsAvailable",
             KeySchema: [
-                //{AttributeName: "macAddress", KeyType: "HASH"}, //partition key
-                { AttributeName: "lastAvailTime", KeyType: "HASH" } // partition key
+                { AttributeName: "agentID", KeyType: "HASH" },  //partition key
+                { AttributeName: "lastAvailTime", KeyType: "RANGE" } // partition key
             ],
             Projection: {
                 ProjectionType: "ALL"
@@ -48,10 +48,10 @@ var paramsDelete = {
     TableName: "Devices"
 };
 
-function dynamodbCreateTable(){
+function deviceTable(){
 }
 
-dynamodbCreateTable.prototype.createTable = function() {
+deviceTable.prototype.createTable = function() {
     dynamodb.createTable(params, function(err, data) {
         if (err) {
             console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
@@ -61,7 +61,7 @@ dynamodbCreateTable.prototype.createTable = function() {
     });  
 }
 
-dynamodbCreateTable.prototype.deleteTable = function () {
+deviceTable.prototype.deleteTable = function () {
     dynamodb.deleteTable(paramsDelete, function (err, data) {
         if (err) {
             console.error("Unable to delete table. Error JSON:", JSON.stringify(err, null, 2));
@@ -71,5 +71,5 @@ dynamodbCreateTable.prototype.deleteTable = function () {
     });
 }
 
-module.exports = dynamodbCreateTable;
+module.exports = deviceTable;
 

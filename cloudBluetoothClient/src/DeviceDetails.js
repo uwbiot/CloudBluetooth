@@ -49,8 +49,8 @@ class DeviceDetails extends Component {
     }
 
     fetchDeviceDetailInfo() {
-        //var endpoint = "/connect";
-        var endpoint = "http://localhost:4000/connect";
+        var endpoint = "/connect";
+        //var endpoint = "http://localhost:4000/connect";
         var component = this;
         fetch(endpoint, {
             method: 'POST',

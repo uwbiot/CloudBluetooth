@@ -47,8 +47,8 @@ class Devices extends Component {
     }
 
     disconnectDevice(macAddress, agentID) {
-        //var endpoint = "/disconnect";
-        var endpoint = "http://localhost:4000/disconnect";
+        var endpoint = "/disconnect";
+        //var endpoint = "http://localhost:4000/disconnect";
         fetch(endpoint, {
             method: 'POST',
             headers: {

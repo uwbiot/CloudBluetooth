@@ -14,8 +14,8 @@ class ReadData extends Component {
     }
 
     fetchData() {
-        //var endpoint = "/read";
-        var endpoint = "http://localhost:4000/read";
+        var endpoint = "/read";
+        //var endpoint = "http://localhost:4000/read";
         var component = this;
         fetch(endpoint, {
             method: 'POST',

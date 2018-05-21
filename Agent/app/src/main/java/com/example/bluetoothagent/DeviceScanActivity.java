@@ -25,7 +25,7 @@ import com.amazonaws.mobileconnectors.iot.AWSIotMqttNewMessageCallback;
 
 import java.io.UnsupportedEncodingException;
 
-public class DeviceScanConnActivity extends Activity {
+public class DeviceScanActivity extends Activity {
     private BluetoothAdapter mBluetoothAdapter;
     private Handler mHandler;
     private static IotClient iotClient;
@@ -47,7 +47,7 @@ public class DeviceScanConnActivity extends Activity {
     private static final long CONNECTION_CHECK_PERIOD = 5000;
     // check available devices every 5 minutes
     private static final long AVAILABLE_CHECK_PERIOD = 300000;
-    private static final String LOG_TAG = "DeviceScanConnActivity";
+    private static final String LOG_TAG = "DeviceScanActivity";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -59,7 +59,7 @@ public class DeviceScanConnActivity extends Activity {
         textView = findViewById(R.id.textView);
         textView.setMovementMethod(new ScrollingMovementMethod());
 
-        textView.append("DeviceScan, Supper called for DeviceScan OnCreate\n");
+        //textView.append("DeviceScan, Supper called for DeviceScan OnCreate\n");
         mHandler = new Handler();
         // Use this check to determine whether BLE is supported on the device.  Then you can
         // selectively disable BLE-related features.
@@ -94,15 +94,15 @@ public class DeviceScanConnActivity extends Activity {
                     public void run() {
                         if (status == AWSIotMqttClientStatus.Connecting) {
                             Log.d(LOG_TAG, "Connecting...");
-                            textView.append("AWSIOTConnecting..\n");
+                            //textView.append("AWSIOTConnecting..\n");
                         } else if (status == AWSIotMqttClientStatus.Connected) {
-                            textView.append("AWSIOTConnected\n");
+                            //textView.append("AWSIOTConnected\n");
                             TopicMessage topics = topicsManager.getTopics();
                             iotClient.subscribe(topics.scan_req, scanRequestCallback());
                             iotClient.subscribe(topics.conn_req, connectRequestCallback());
                             iotClient.subscribe(topics.disconn_req, disconnectRequestCallback());
                             if (!isAvailableCheckRun) {
-                                textView.append("Start repeating check available devices\n");
+                                //textView.append("Start repeating check available devices\n");
                                 startRepeatingAvailableCheckTask();
                             }
                             Log.d(LOG_TAG, "send post register service to server");
@@ -135,7 +135,7 @@ public class DeviceScanConnActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        textView.append("start scanning ble devices");
+                        //textView.append("start scanning ble devices");
                         scanLeDevice(true);
                     }
                 });
@@ -160,12 +160,12 @@ public class DeviceScanConnActivity extends Activity {
                             ConnectMessage connectMessage = new ConnectMessage(message);
                             mDeviceAddress = connectMessage.macAddress;
                             mRequestId = connectMessage.requestId;
-                            textView.append("connect Message arrived: macAddress " + mDeviceAddress);
+                            //textView.append("connect Message arrived: macAddress " + mDeviceAddress);
                             if(mBluetoothLeService == null) {
                                 Intent gattServiceIntent = new Intent(self, BluetoothLeService.class);
                                 bindService(gattServiceIntent, MyServiceConnection, BIND_AUTO_CREATE);
                                 registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-                                textView.append("register receiver!");
+                                //textView.append("register receiver!");
                                 isRegistered = true;
                             }
                             if(mBluetoothLeService != null) {
@@ -199,8 +199,8 @@ public class DeviceScanConnActivity extends Activity {
                             ConnectMessage connectMessage = new ConnectMessage(message);
                             String macAddress = connectMessage.macAddress;
                             String requestId = connectMessage.requestId;
-                            textView.append("disconnect Message arrived: macAddress " + macAddress);
-                            textView.append("disconnect ble device: " + macAddress);
+                            //textView.append("disconnect Message arrived: macAddress " + macAddress);
+                            //textView.append("disconnect ble device: " + macAddress);
                             Log.d("disconnect device", "disconnect request: " + macAddress);
                             mBluetoothLeService.disconnect(macAddress, requestId);
 
@@ -223,9 +223,9 @@ public class DeviceScanConnActivity extends Activity {
                 if(mBluetoothLeService != null) {
                     for (String key : mBluetoothLeService.getConnectedDevices()) {
                         if(mBluetoothLeService != null ) {
-                            textView.append("connected device key:" + key);
+                            //textView.append("connected device key:" + key);
                             iotClient.publish(topics.conn_device, Messaging.writeConnectDeviceJSON(key));
-                            textView.append("connected device macAddress" + key);
+                            //textView.append("connected device macAddress" + key);
                         }
                     }
                 }
@@ -244,7 +244,7 @@ public class DeviceScanConnActivity extends Activity {
             try {
                 deviceManager.clearAddressMap();
                 //CallServerAPI.availableDevice(textView);
-                textView.append("start scanning ble devices");
+                //textView.append("start scanning ble devices");
                 scanLeDevice(true);
             } finally {
                 // 100% guarantee that this always happens, even if
@@ -361,10 +361,10 @@ public class DeviceScanConnActivity extends Activity {
                         if (device.getName() != null && !device.getName().equals("")) {
                             String serialization = Messaging.writeDeviceJSON(device.getName(), device.getAddress());
                             iotClient.publish(topics.scan_res, serialization);
-                            textView.append("publish to topic scan result: " + serialization + "\n");
+                            //textView.append("publish to topic scan result: " + serialization + "\n");
                             deviceManager.addDevice(device.getAddress(), device);
                             Log.d("mLeScanCallback: ", device.getAddress());
-                            textView.append("mLeScanCallback: " + device.getAddress() + "\n");
+                            //textView.append("mLeScanCallback: " + device.getAddress() + "\n");
                         }
                     }
                 }
@@ -404,18 +404,22 @@ public class DeviceScanConnActivity extends Activity {
                         deviceMacAddress, requestId);
                 deviceManager.addListGATTCharacteristic(mBluetoothLeService.getSupportedGattServices(deviceMacAddress), deviceMacAddress);
                 iotClient.publish(topicsManager.getTopics().conn_res, message);
-                textView.append("GATT status: service discovered " + message);
+                //textView.append("GATT status: service discovered " + message);
             } else if (BluetoothLeService.ACTION_DATA_READ.equals(action)) {
                 iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_READ,
                         intent.getStringExtra(BluetoothLeService.EXTRA_DATA), intent.getStringExtra(BluetoothLeService.UUID_DATA),
                         deviceMacAddress, requestId));
-                textView.append("GATT_read_response: data available");
+                //textView.append("GATT_read_response: data available");
             } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
                 iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_WRITE,
                                   intent.getStringExtra(BluetoothLeService.UUID_DATA),
                                   deviceMacAddress, requestId));
                 textView.append("GATT_write_response: success!");
             }
+            /*else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
+                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_NOTIFY,
+                                  intent.getStringExtra(), deviceMacAddress, requestId));
+            }*/
         }
     };
 
@@ -432,7 +436,7 @@ public class DeviceScanConnActivity extends Activity {
                         Log.d(LOG_TAG, "Message arrived:");
                         Log.d(LOG_TAG, "   Topic: " + topic);
                         Log.d(LOG_TAG, " Message: " + message);
-                        textView.append("data request Message arrived: " + message);
+                        //textView.append("data request Message arrived: " + message);
                         DataMessage dataMessage = new DataMessage(message);
                         DataMessage.MessageType type = dataMessage.type;
                         String uuid = dataMessage.uuid;
@@ -444,6 +448,9 @@ public class DeviceScanConnActivity extends Activity {
                             Log.d(LOG_TAG, new String(dataMessage.bytes));
                         } else if (type.equals(DataMessage.MessageType.READ)){
                             //mBluetoothLeService.readCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestID);
+                            //Long tsLong = System.currentTimeMillis()/1000;
+                            //String ts = tsLong.toString();
+                            //Log.d("testing receive request", "requestId: " + requestId + " ts: " + ts);
                             readData(uuid, macAddress, requestId);
                         }
                     } catch (UnsupportedEncodingException e) {

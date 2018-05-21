@@ -1,4 +1,3 @@
-
 var awsIot = require('aws-iot-device-sdk');
 /*
 ///Users/wei/Documents/nodejs/temp
@@ -37,6 +36,15 @@ const DATA_REQ = 'data_req';
 const DATA_RES = 'data_res';
 const CONN_DEVICE = 'conn_device';
 
+//var readQueue = [];
+/*
+setInterval(function(){
+  if(readQueue.length > 0) {
+    var item = readQueue.shift();
+    device.publish(item.t, item.j);
+  }
+}, 5);
+*/
 function iotManager() {
 //
 // Replace the values of '<YourUniqueClientIdlsentifier>' and '<YourCustomEndpoint>'
@@ -64,6 +72,7 @@ device
       var agentID = message.agentID;
       var macAddress = message.macAddress;
       var deviceName = message.deviceName;
+      //console.log("agentID: " + agentID + "macAddress: " + macAddress + "deviceName: " + deviceName);
       dynamoDBClient.putDevice(agentID, macAddress, deviceName);
     } else if (topic.endsWith(CONN_RES)) {
       if (message.type === 'ACTION_GATT_SERVICES_DISCOVERED') {
@@ -150,8 +159,13 @@ iotManager.prototype.readData = function(chara, macAddress, topic, requestId) {
                "requestId": requestId};
   var myJSON = JSON.stringify(myObj);
   device.publish(topic, myJSON);
+  //this.addToReadQueue(topic, myJSON);
 }
-
+/*
+iotManager.prototype.addToReadQueue = function(topic, myJSON) {
+  readQueue.push({t:topic, j:myJSON});
+}
+*/
 iotManager.prototype.writeData = function(chara, bytes, macAddress, topic, requestId) {
   var myObj = { "messageType": "WRITE", "uuid": chara, "bytes": bytes, 
                 "macAddress": macAddress, "requestId": requestId};

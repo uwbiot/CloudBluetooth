@@ -21,8 +21,8 @@ class WriteData extends Component {
     }
 
     onWriteClick(event) {
-        //var endpoint = "/write";
-        var endpoint = "http://localhost:4000/write";
+        var endpoint = "/write";
+        //var endpoint = "http://localhost:4000/write";
         var component = this;
         fetch(endpoint, {
             method: 'POST',

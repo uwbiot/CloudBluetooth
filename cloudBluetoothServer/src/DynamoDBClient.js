@@ -17,6 +17,8 @@ var docClient = new AWS.DynamoDB.DocumentClient();
 var devicesTable = "Devices";
 var publicTable = "publicServices";
 var userDefineTable = "userDefineServices";
+var agentIDKeyTable = "AgentIDKeyMap";
+var userKeysTable = "UserKeysList";
 
 function DynamoDBClient() {
 }
@@ -46,33 +48,32 @@ DynamoDBClient.prototype.putDevice = function (agentID, macAddress, deviceName) 
     });
 }
 
-DynamoDBClient.prototype.scanAllAvailableDevices = function(callback) {
-    console.log("Scanning for active devices");
-
+DynamoDBClient.prototype.queryAvailableDevices = function(agentID, callback) {
+    console.log("Querying for active devices");
     var params = {
         TableName: devicesTable,
         IndexName: "IsAvailable",
-        FilterExpression: "lastAvailTime > :limitAvailTime",
-        ProjectionExpression: "macAddress, agentID, deviceName",
+        KeyConditionExpression: "agentID = :agentID AND lastAvailTime > :limitAvailTime",
         ExpressionAttributeValues: {
+            ":agentID": agentID,
             ":limitAvailTime": Math.floor(new Date().getTime() / 1000) - CHECK_AVAILABLE_PERIOD
-        }
-    };
-    
-    console.log("Scanning Devices table, get all available devices");
-    docClient.scan(params, (err, data) => {
+        },
+        ProjectionExpression: "macAddress, agentID, deviceName",
+    };   
+    console.log("Querying Devices table, get all available devices");
+    docClient.query(params, (err, data) => {
         if (err) {
-            console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
+            console.error("Unable to query the table. Error JSON:", JSON.stringify(err, null, 2));
         } else {
             // print all the movies
-            console.log("Scan succeeded.");
+            console.log("Query succeeded.");
             data.Items.forEach(function(device) {
                console.log(
                     device.macAddress + ": ",
                     device.agentID, ": ", device.deviceName);
             });
             if(callback) {
-                callback(data.Items);
+                callback(null, data.Items);
             }   
         }
     });
@@ -96,7 +97,6 @@ DynamoDBClient.prototype.updateServices = function(agentID, macAddress, services
         },
         ReturnValues:"UPDATED_NEW"
     };
-
     console.log("Updating the services...");
     docClient.update(params, function(err, data) {
         if (err) {
@@ -124,7 +124,6 @@ DynamoDBClient.prototype.updateAvailTime = function (agentID, macAddress) {
         },
         ReturnValues: "UPDATED_NEW"
     };
-
     console.log("Updating the last available time...");
     docClient.update(params, function (err, data) {
         if (err) {
@@ -151,7 +150,6 @@ DynamoDBClient.prototype.updateConnTime = function (agentID, macAddress) {
         },
         ReturnValues: "UPDATED_NEW"
     };
-
     console.log("Updating the last connect time...");
     docClient.update(params, function (err, data) {
         if (err) {
@@ -178,7 +176,6 @@ DynamoDBClient.prototype.initialConnTime = function (agentID, macAddress) {
         },
         ReturnValues: "UPDATED_NEW"
     };
-
     console.log("Initial the last connect time...");
     docClient.update(params, function (err, data) {
         if (err) {
@@ -191,7 +188,6 @@ DynamoDBClient.prototype.initialConnTime = function (agentID, macAddress) {
 
 DynamoDBClient.prototype.getDevice = function (agentID, macAddress, callback) {
     console.log("Getting for device with macAddress");
-
     var params = {
         TableName : devicesTable,
         Key: {
@@ -199,10 +195,10 @@ DynamoDBClient.prototype.getDevice = function (agentID, macAddress, callback) {
             "macAddress": macAddress
         }
     };
-
     docClient.get(params, (err, data) => {
         if (err) {
             console.log("Unable to get. Error:", JSON.stringify(err, null, 2));
+            callback(err);
         } else {
             console.log("Get succeeded.");
             console.log("macAddress: "+ data.Item.macAddress
@@ -224,7 +220,6 @@ DynamoDBClient.prototype.putPublicService = function (uuid, serviceName) {
             "serviceName": serviceName
         }
     };
-
     console.log("Adding new public service...");
     docClient.put(params, function (err, data) {
         if (err) {
@@ -244,7 +239,6 @@ DynamoDBClient.prototype.putUserDefineService = function (uuid, serviceName) {
             "serviceName": serviceName
         }
     };
-
     console.log("Adding new user define service...");
     docClient.put(params, function (err, data) {
         if (err) {
@@ -257,7 +251,7 @@ DynamoDBClient.prototype.putUserDefineService = function (uuid, serviceName) {
 
 
 DynamoDBClient.prototype.getPublicServiceName = function (uuid, callback) {
-    console.log("Querying for service name with uuid");
+    console.log("Getting for service name with uuid");
     var serviceUUID = uuid;
     var paramsPublic = {
         TableName: publicTable,
@@ -265,23 +259,22 @@ DynamoDBClient.prototype.getPublicServiceName = function (uuid, callback) {
             "serviceUUID": serviceUUID
         }
     };
-
     var paramsUser = {
         TableName: userDefineTable,
         Key: {
             "serviceUUID": serviceUUID
         }
     };
-
     docClient.get(paramsPublic, (err, data) => {
         if (err) {
-            console.log("Unable to query. Error: ", JSON.stringify(err, null, 2));
+            console.log("Unable to get. Error: ", JSON.stringify(err, null, 2));
+            callback(err);
         } else {
             //console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
             if (data.Item == null) {
                 docClient.get(paramsUser, (err, data) => {
                     if (err) {
-                        console.log("Unable to query. Error:", JSON.stringify(err, null, 2));
+                        console.log("Unable to get. Error:", JSON.stringify(err, null, 2));
                     } else {
                         //console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
                         if (callback) {
@@ -298,16 +291,12 @@ DynamoDBClient.prototype.getPublicServiceName = function (uuid, callback) {
     });
 }
 
-
-
 DynamoDBClient.prototype.getAllPublicServices = function (callback) {
     console.log("Scanning for public services");
-
     var params = {
         TableName: publicTable,
         ProjectionExpression: "serviceUUID, serviceName"
     };
-
     console.log("Scanning Public Services table.");
     docClient.scan(params, (err, data) => {
         if (err) {
@@ -329,16 +318,15 @@ DynamoDBClient.prototype.getAllPublicServices = function (callback) {
 
 DynamoDBClient.prototype.getAllUserDefineServices = function (callback) {
     console.log("Scanning for user define services");
-
     var params = {
         TableName: userDefineTable,
         ProjectionExpression: "serviceUUID, serviceName"
     };
-
     console.log("Scanning User Define Services table.");
     docClient.scan(params, (err, data) => {
         if (err) {
             console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
+            callback(err);
         } else {
             // print all the movies
             console.log("Scan user define services succeeded.");
@@ -388,6 +376,142 @@ DynamoDBClient.prototype.deleteUserDefineService = function (uuid) {
             console.error("Unable to delete item. Error JSON:", JSON.stringify(err, null, 2));
         } else {
             console.log("DeleteItem succeeded:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.putAgentIDKey = function (agentID, agentKey) {
+    console.log("Put agentID key pair");
+    var params = {
+        TableName: agentIDKeyTable,
+        Item: {
+            "agentID": agentID,
+            "agentKey": agentKey
+        }
+    };
+    console.log("Adding new agentID key pair...");
+    docClient.put(params, function (err, data) {
+        if (err) {
+            console.error("Unable to add agentID key pair. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Added agentID key pair:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.getKey = function (agentID, callback) {
+    console.log("Getting key for agentID");
+    var params = {
+        TableName: agentIDKeyTable,
+        Key: {
+            "agentID": agentID
+        }
+    };
+    docClient.get(params, (err, data) => {
+        if (err) {
+            console.log("Unable to get. Error:", JSON.stringify(err, null, 2));
+            //callback(err);
+        } else {
+            console.log("Get succeeded.");
+            //console.log("agentId: " + data.Item.agentID + "key: " + data.Item.key);
+            if (callback) {
+                callback(data);
+            }
+        }
+    });
+}
+
+DynamoDBClient.prototype.queryAgentID = function (agentKey, callback) {
+    console.log("Querying agentID for key");
+    console.log("agentKey: " + agentKey);
+    var params = {
+        TableName: agentIDKeyTable,
+        IndexName: "key2AgentID",
+        KeyConditionExpression: "agentKey = :agentKey",
+        ExpressionAttributeValues: {
+            ":agentKey": agentKey
+        },
+    };
+    docClient.query(params, (err, data) => {
+        if (err) {
+            console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
+            callback(err);
+        } else {
+            console.log("Query succeeded.");
+            //console.log("agentID: " + data.Items[0].agentID + "key: " + data.Items[0].agentKey);
+            if (callback) {
+                callback(data);
+            }
+        }
+    });
+} 
+
+DynamoDBClient.prototype.putUserInfo = function (userEmailAddress) {
+    console.log("Put user info");
+    var params = {
+        TableName: userKeysTable,
+        Item: {
+            "userEmailAddress": userEmailAddress,
+            "keysList" : [],
+            "agentIDsList" : []
+        }
+    };
+    console.log("Adding new user...");
+    docClient.put(params, function (err, data) {
+        if (err) {
+            console.error("Unable to add user. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Added user:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.updateUserKey = function (userEmailAddress, agentKey, agentID) {
+    console.log("Updating user keyList");
+    console.log("userEmailAddress: " + userEmailAddress);
+    console.log("add new agentKey: " + agentKey);
+    console.log("add new agentID: " + agentID);
+    // Update the item, unconditionally,
+    var params = {
+        TableName: userKeysTable,
+        Key: {
+            "userEmailAddress": userEmailAddress
+        },
+        UpdateExpression: "SET keysList = list_append(keysList, :kyeVals), agentIDsList = list_append(agentIDsList, :agentVals)",
+        ExpressionAttributeValues: {
+            ":kyeVals": [agentKey],
+            ":agentVals": [agentID]
+        },
+        ReturnValues: "ALL_NEW"
+    };
+    console.log("Updating the user keys list...");
+    docClient.update(params, function (err, data) {
+        if (err) {
+            console.error("Unable to update user keys list. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Update user keys list succeeded:", JSON.stringify(data, null, 2));
+        }
+    });
+}
+
+DynamoDBClient.prototype.getUserInfoList = function (userEmailAddress, callback) {
+    console.log("Getting for user key lists");
+    var params = {
+        TableName: userKeysTable,
+        Key: {
+            "userEmailAddress": userEmailAddress
+        }
+    };
+    docClient.get(params, (err, data) => {
+        if (err) {
+            console.log("Unable to get. Error:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("Get succeeded.");
+            //console.log("userEmailAddress: " + data.Item.userEmailAddress
+            //    + " keysList: " + data.Item.keysList);
+            if (callback) {
+                callback(data);
+            }
         }
     });
 }

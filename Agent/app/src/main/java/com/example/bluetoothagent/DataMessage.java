@@ -34,21 +34,8 @@ public class DataMessage {
             if(!json.isNull("bytes")) {
                 this.bytes = Base64.decode(json.getString("bytes"), Base64.DEFAULT);
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public static MessageType getMessageType(String dataJSON) {
-        MessageType type = null;
-        try {
-            JSONObject json = new JSONObject(dataJSON);
-            type = MessageType.valueOf(json.getString("messageType"));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return type;
-    }
-
-
 }

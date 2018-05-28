@@ -26,6 +26,10 @@ var onServiceDiscover = null;
 //var onDataReceived = null;  
 var requestIdDataCallbackMap = new Object();
 var requestIdConnectCallbackMap = new Object();
+
+var notificationSubscriber = new Object();
+var notificationStatus = new Object();
+
 //define topics
 const SCAN_REQ = 'scan_req';
 const SCAN_RES = 'scan_res';
@@ -103,19 +107,34 @@ device
       if (message.type === 'ACTION_DATA_READ') {
         var requestId = message.requestId;
         var value = message.value;
-        console.log("recevied read data:" + message.value);
-        console.log("requestId:" + message.requestId);
-        var onDataReceived = requestIdDataCallbackMap[requestId];
-        if(onDataReceived) {
-          onDataReceived(message);
-        }
-      } else if (message.type === 'ACTION_DATA_WRITE') {
-        var requestId = message.requestId;
-        console.log("requestId:" + message.requestId);
+        console.log("recevied read data: " + message.value);
+        console.log("requestId: " + message.requestId);
         var onDataReceived = requestIdDataCallbackMap[requestId];
         if (onDataReceived) {
           onDataReceived(message);
         }
+      } else if (message.type === 'ACTION_DATA_WRITE') {
+        var requestId = message.requestId;
+        console.log("requestId: " + message.requestId);
+        var onDataReceived = requestIdDataCallbackMap[requestId];
+        if (onDataReceived) {
+          onDataReceived(message);
+        }
+      } else if (message.type === 'ACTION_DATA_NOTIFY') {
+        var uuid = message.uuid;
+        var macAddress = message.macAddress;
+        console.log("uuid: " + uuid);
+        console.log("value: " + message.value);
+        var uuidMacAddress = uuid + macAddress;
+        var socketList = notificationSubscriber[uuidMacAddress];
+        socketList.forEach( socket => {
+          socket.emit('notifyMessage', message.value);
+        })
+
+        //var onDataReceived = requestIdDataCallbackMap[requestId];
+        //if (onDataReceived) {
+          //onDataReceived(message);
+        //}
       }
     } else if (topic.endsWith(CONN_DEVICE)) {
       var agentID = message.agentID;
@@ -173,6 +192,14 @@ iotManager.prototype.writeData = function(chara, bytes, macAddress, topic, reque
   device.publish(topic, myJSON);
 }
 
+iotManager.prototype.notifyData = function(chara, macAddress, topic, requestId) {
+  var myObj = { "messageType": "NOTIFY", "uuid": chara, "macAddress": macAddress, 
+                "requestId": requestId
+  };
+  var myJSON = JSON.stringify(myObj);
+  device.publish(topic, myJSON);
+}
+
 iotManager.prototype.registerOnServiceDiscover = function(requestId, callback) {
   requestIdConnectCallbackMap[requestId] = callback;
 }
@@ -187,6 +214,34 @@ iotManager.prototype.registerOnDataReceived = function (requestId, callback) {
 
 iotManager.prototype.unRegisterOnDataReceived = function (requestId) {
   requestIdDataCallbackMap[requestId] = null;
+}
+
+iotManager.prototype.registerOnNotificationReceived = function (uuidMacAddress, socket) {
+  if (!notificationSubscriber[uuidMacAddress]){
+    notificationSubscriber[uuidMacAddress] = [];
+  }
+  notificationSubscriber[uuidMacAddress].push(socket);
+}
+
+iotManager.prototype.unRegisterOnNotificationReceived = function (uuidMacAddress, socket) {
+  if (notificationSubscriber[uuidMacAddress]) {
+    var index = notificationSubscriber[uuidMacAddress].indexOf(socket);
+    if (index > -1) {
+      notificationSubscriber[uuidMacAddress].splice(index, 1);
+    }
+  }
+}
+
+iotManager.prototype.isNotificationEnabled = function (uuidMacAddress) {
+  if (notificationStatus[uuidMacAddress]) {
+    console.log("isNotificationEnabled: " + uuidMacAddress);
+    return true;
+  }
+  return false;
+}
+
+iotManager.prototype.enableNotification = function (uuidMacAddress) {
+  notificationStatus[uuidMacAddress]= true;
 }
 
 module.exports = iotManager;

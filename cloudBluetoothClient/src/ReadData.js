@@ -8,14 +8,14 @@ class ReadData extends Component {
 
     render() {
         return(<div>
-            <button type="button" onClick = {this.fetchData.bind(this)}>Read</button>
+            <button type = "button" onClick = {this.fetchData.bind(this)}>Read</button>
             {this.state.data}
             </div>);
     }
 
     fetchData() {
-        var endpoint = "/read";
-        //var endpoint = "http://localhost:4000/read";
+        //var endpoint = "/read";
+        var endpoint = "http://localhost:4000/read";
         var component = this;
         fetch(endpoint, {
             method: 'POST',

@@ -18,7 +18,7 @@ class App extends Component {
   render() {
     var agentList = this.state.agentIDs.map((agentID) => {
       var devices = <Devices deviceList = {this.state.agents[agentID]}/>;
-      return (<div className="agent">
+      return (<div className = "agent">
          Agent ID: {agentID}
          {devices}
        </div>);
@@ -28,10 +28,10 @@ class App extends Component {
     var logout = <div/>;
     if (this.state.userName == '') {
       login = <GoogleLogin
-        clientId="323138957375-8v8rbrk83slomrclgnhaemoc939mpkip.apps.googleusercontent.com"
-        buttonText="Login"
-        onSuccess={this.onSignIn.bind(this)}
-        onFailure={this.onSignInFail.bind(this)}
+        clientId = "323138957375-8v8rbrk83slomrclgnhaemoc939mpkip.apps.googleusercontent.com"
+        buttonText = "Login"
+        onSuccess = {this.onSignIn.bind(this)}
+        onFailure = {this.onSignInFail.bind(this)}
       />
     } else {
       login = this.state.userName;
@@ -42,22 +42,22 @@ class App extends Component {
     }
 
     return (
-      <div className="App">
-        <div className="App-header">
-          <div className="middle">
-            <div className="headerTitle">cloud bluetooth</div>
+      <div className = "App">
+        <div className = "App-header">
+          <div className = "middle">
+            <div className = "headerTitle">cloud bluetooth</div>
             {login}
             {logout}
           </div>
         </div>
-        <div className="error">{this.state.error}</div>
-        <div className="mainDiv">
-          <input type="text" onChange={this.onchange.bind(this)} />
-          <button type="button" onClick={this.onUploadClick.bind(this)}>UploadKey</button>
+        <div className = "error">{this.state.error}</div>
+        <div className = "mainDiv">
+          <input type = "text" onChange = {this.onchange.bind(this)} />
+          <button type = "button" onClick = {this.onUploadClick.bind(this)}>UploadKey</button>
           <div>{agentList}</div>
         </div>
-        <div className="author">
-          Developed by <a href="mailto:michellewx16@gmail.com">Wei Xu</a> 
+        <div className = "author">
+          Developed by <a href = "mailto:michellewx16@gmail.com">Wei Xu</a> 
         </div>
       </div>
     );
@@ -68,8 +68,8 @@ class App extends Component {
   }
 
   onUploadClick(event) {
-    var endpoint = "/addKey";
-    //var endpoint = "http://localhost:4000/addKey";
+    //var endpoint = "/addKey";
+    var endpoint = "http://localhost:4000/addKey";
     var component = this;
     fetch(endpoint, {
       method: 'POST',
@@ -89,8 +89,8 @@ class App extends Component {
   }
 
   fetchDeviceInfo() {
-    var endpoint = "/getDevices";
-    //var endpoint = "http://localhost:4000/getDevices"
+    //var endpoint = "/getDevices";
+    var endpoint = "http://localhost:4000/getDevices"
 
     var component = this;
     fetch(endpoint, {
@@ -119,7 +119,7 @@ class App extends Component {
             }, this);
             component.setState({ agents: agentToDeviceMapping , agentIDs: agentIDs});
           } else {
-          component.setState({ error: "The response is invalid" });
+            component.setState({ error: "The response is invalid" });
           }
         }).catch(function (ex) {
           console.log('parsing failed', ex)
@@ -127,8 +127,8 @@ class App extends Component {
   }
 
   validateAuth(id_token, name) {
-    var endpoint = "/validateToken"
-    //var endpoint = "http://localhost:4000/validateToken"
+    //var endpoint = "/validateToken"
+    var endpoint = "http://localhost:4000/validateToken"
     var component = this;
     fetch(endpoint, {
       method: 'GET',

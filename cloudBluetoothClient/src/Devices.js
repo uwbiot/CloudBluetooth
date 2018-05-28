@@ -13,12 +13,12 @@ class Devices extends Component {
             var deviceDetail = <div />;
             var text = "connect";
             if (device.isConnect) {
-                deviceDetail = <DeviceDetails macAddress={device.macAddress} agentID={device.agentID} />;
+                deviceDetail = <DeviceDetails macAddress = {device.macAddress} agentID = {device.agentID} />;
                 text = "disconnect";
             }
             return (<div>
                 {device.name}
-                <button type="button" onClick={this.onDeviceClick.bind(this)} id={device.agentID} name={device.macAddress}>{text}</button>
+                <button type = "button" onClick = {this.onDeviceClick.bind(this)} id = {device.agentID} name = {device.macAddress}>{text}</button>
                 {deviceDetail}
             </div>);
         });
@@ -47,8 +47,8 @@ class Devices extends Component {
     }
 
     disconnectDevice(macAddress, agentID) {
-        var endpoint = "/disconnect";
-        //var endpoint = "http://localhost:4000/disconnect";
+        //var endpoint = "/disconnect";
+        var endpoint = "http://localhost:4000/disconnect";
         fetch(endpoint, {
             method: 'POST',
             headers: {

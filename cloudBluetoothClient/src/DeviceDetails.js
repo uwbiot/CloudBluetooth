@@ -16,12 +16,12 @@ class DeviceDetails extends Component {
         var deviceDetailList = this.state.deviceDetails.map((deviceDetail) => {
             var services = <div/>;
             if (deviceDetail.isClicked) {
-                services = <Service services={deviceDetail.charas} macAddress={this.props.macAddress} agentID = {this.props.agentID}/>
+                services = <Service services = {deviceDetail.charas} macAddress = {this.props.macAddress} agentID = {this.props.agentID}/>
             }
             var deviceName = deviceDetail.name ? deviceDetail.name : deviceDetail.uuid;
             return (
-                <div className="service">
-                    <div className = "serviceName" onClick={this.onServiceClick.bind(this)} name={deviceDetail.uuid} >service name: {deviceName}</div>
+                <div className = "service">
+                    <div className = "serviceName" onClick = {this.onServiceClick.bind(this)} name = {deviceDetail.uuid} >service name: {deviceName}</div>
                  {services}
                 </div>
             );
@@ -49,8 +49,8 @@ class DeviceDetails extends Component {
     }
 
     fetchDeviceDetailInfo() {
-        var endpoint = "/connect";
-        //var endpoint = "http://localhost:4000/connect";
+        //var endpoint = "/connect";
+        var endpoint = "http://localhost:4000/connect";
         var component = this;
         fetch(endpoint, {
             method: 'POST',

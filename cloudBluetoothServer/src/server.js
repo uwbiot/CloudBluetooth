@@ -338,6 +338,26 @@ app.post('/write', (req, res) => {
     iotManager.writeData(chara, bytes, macAddress, dataReq, requestId);
 })
 
+app.post('/notify', (req, res) => {
+    var requestId = res.get("requestId");
+    var message = req.body;
+    var chara = message.chara;
+    var macAddress = message.macAddress;
+    var agentID = message.agentID;
+    var dataReq = agentID + '/' + DATA_REQ;
+    var uuidMacAddress = chara + macAddress;
+    /*iotManager.registerOnDataReceived(requestId, (data) => {
+        res.send(data);
+        iotManager.unRegisterOnDataReceived(requestId);
+    });*/
+    if (!iotManager.isNotificationEnabled(uuidMacAddress)) {
+        iotManager.notifyData(chara, macAddress, dataReq, requestId);
+        iotManager.enableNotification(uuidMacAddress);
+    }
+    res.sendStatus(200);
+})
+
+
 app.get('/validateToken', (req, res) => {
     var id_token = req.get('Token');
     console.log("id token get from client: " + id_token);
@@ -369,12 +389,14 @@ app.get('/validateToken', (req, res) => {
 //dynamoDBUserKeysListTable.createTable();
 //dynamoDBUserKeysListTable.deleteTable();
 //dynamoDBCreateAgentIDKeyMapTable.deleteTable();
-// io.on('connection', (socket) => {
-//     socket.on('scandevice', (msg) =>{
-//         iotManger.scan();
-//         console.log('receive scan');
-//     });
-// });
+io.on('connection', (socket) => {
+    socket.on('uuidMacAddress', (msg) => {
+        iotManager.registerOnNotificationReceived(msg, socket);
+    });
+    socket.on('disableNotify', (msg) => {
+        iotManager.unRegisterOnNotificationReceived(msg, socket);
+    })
+});
 
 process.on('uncaughtException', function (err) {
     console.error(err.stack);

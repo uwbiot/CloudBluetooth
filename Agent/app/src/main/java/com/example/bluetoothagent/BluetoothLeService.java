@@ -34,6 +34,7 @@ public class BluetoothLeService extends Service {
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
+    //private BluetoothGattCharacteristic mNotifyCharacteristic;
     private HashMap<String, BluetoothGatt> gattHashMap = new HashMap<>();
     private HashMap<String, Integer> connStatusMap = new HashMap<>();
     private int mConnectionState = STATE_DISCONNECTED;
@@ -89,6 +90,26 @@ public class BluetoothLeService extends Service {
 
     private void broadcastUpdate(final String action) {
         final Intent intent = new Intent(action);
+        sendBroadcast(intent);
+    }
+
+    private void broadcastUpdate(String action, BluetoothGattCharacteristic characteristic,
+                                 String macAddress) {
+        Intent intent = new Intent(action);
+        intent.putExtra(UUID_DATA, new String(characteristic.getUuid().toString()));
+        intent.putExtra(MAC_ADDRESS, new String(macAddress));
+        final byte[] data = characteristic.getValue();
+        if(characteristic.getUuid().toString().equals("f000aa71-0451-4000-b000-000000000000")) {
+            intent.putExtra(EXTRA_DATA, SampleNotification.convert(data));
+        } else {
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                }
+                intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+            }
+        }
         sendBroadcast(intent);
     }
 
@@ -316,8 +337,7 @@ public class BluetoothLeService extends Service {
             public void onCharacteristicChanged(BluetoothGatt gatt,
                                                 BluetoothGattCharacteristic characteristic) {
                 Log.w(TAG, "onCharacteristicChange: " + characteristic.getValue());
-                //broadcastUpdate(ACTION_DATA_NOTIFY, characteristic, address, curAction.requestId);
-                //curAction.isFinished = true;
+                broadcastUpdate(ACTION_DATA_NOTIFY, characteristic, address);
             }
         };
 
@@ -456,6 +476,64 @@ public class BluetoothLeService extends Service {
 
     }
 
+    public void notifyCharacteristic(final BluetoothGattCharacteristic characteristic,
+                                     final String macAddress, String requestId) {
+        BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        BLEAction bleAction =  new NotifyAction(characteristic, requestId, macAddress) {
+            @Override
+            public void execute(HashMap<String, BluetoothGatt> gattHashMap) {
+                if (gattHashMap.containsKey(macAddress)) {
+                    BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
+                    final int charaProp = characteristic.getProperties();
+                    //Log.d(TAG, "charaProp: " + charaProp);
+                    if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+                        //mNotifyCharacteristic = characteristic;
+                        mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+                        UUID uuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+                        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(uuid);
+                        if (descriptor == null) {
+                            return;
+                        }
+                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                        mBluetoothGatt.writeDescriptor(descriptor);
+
+                        //Log.w(TAG, "Bluetooth descriptor written!!!");
+                        //Log.d(TAG, "True, Set notification by" + characteristic.getUuid());
+                    }
+                }
+                curAction.isFinished = true;
+            }
+        };
+        addActionToQueue(bleAction);
+        /*
+        final int charaProp = characteristic.getProperties();
+        Log.d(TAG, "charaProp: " + charaProp);
+        /*
+        if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+            // If there is an active notification on a characteristic, clearAll
+            // it first so it doesn't update the data field on the user interface.
+            if (mNotifyCharacteristic != null) {
+                this.setCharacteristicNotification(
+                        mNotifyCharacteristic, true, macAddress);
+                Log.d(TAG, "False, Set notification by" + characteristic.getUuid());
+                mNotifyCharacteristic = null;
+            }
+            Log.d(TAG, "False, read by " + characteristic.getUuid());
+        }*/
+        /*
+        if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+            //mNotifyCharacteristic = characteristic;
+            this.setCharacteristicNotification(
+                    characteristic, true, macAddress);
+            Log.d(TAG, "True, Set notification by" + characteristic.getUuid());
+        }
+        */
+    }
+
     public void writeCharacteristic(BluetoothGattCharacteristic characteristic, byte b,
                                     String macAddress, String requestId) {
         BluetoothGatt mBluetoothGatt = gattHashMap.get(macAddress);
@@ -488,8 +566,7 @@ public class BluetoothLeService extends Service {
         UUID uuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
         BluetoothGattDescriptor descriptor = characteristic.getDescriptor(uuid);
 
-        if(descriptor == null)
-        {
+        if(descriptor == null) {
             return;
         }
         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);

@@ -415,11 +415,10 @@ public class DeviceScanActivity extends Activity {
                                   intent.getStringExtra(BluetoothLeService.UUID_DATA),
                                   deviceMacAddress, requestId));
                 textView.append("GATT_write_response: success!");
+            } else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
+                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeNotifyDataJSON(GATTMessageType.ACTION_DATA_NOTIFY,
+                                  intent.getStringExtra(BluetoothLeService.EXTRA_DATA), intent.getStringExtra(BluetoothLeService.UUID_DATA), deviceMacAddress));
             }
-            /*else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
-                iotClient.publish(topicsManager.getTopics().data_res, Messaging.writeDataJSON(GATTMessageType.ACTION_DATA_NOTIFY,
-                                  intent.getStringExtra(), deviceMacAddress, requestId));
-            }*/
         }
     };
 
@@ -446,12 +445,14 @@ public class DeviceScanActivity extends Activity {
                             mBluetoothLeService.writeCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), dataMessage.bytes, macAddress, requestId);
                             Log.d(LOG_TAG, "Write config file");
                             Log.d(LOG_TAG, new String(dataMessage.bytes));
-                        } else if (type.equals(DataMessage.MessageType.READ)){
-                            //mBluetoothLeService.readCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestID);
+                        } else if (type.equals(DataMessage.MessageType.READ)) {
+                            mBluetoothLeService.readCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestId);
                             //Long tsLong = System.currentTimeMillis()/1000;
                             //String ts = tsLong.toString();
                             //Log.d("testing receive request", "requestId: " + requestId + " ts: " + ts);
-                            readData(uuid, macAddress, requestId);
+                            //readData(uuid, macAddress, requestId);
+                        } else if (type.equals(DataMessage.MessageType.NOTIFY)) {
+                            mBluetoothLeService.notifyCharacteristic(deviceManager.getGATTCharacteristic(uuid, macAddress), macAddress, requestId);
                         }
                     } catch (UnsupportedEncodingException e) {
                         Log.e(LOG_TAG, "Message encoding error.", e);

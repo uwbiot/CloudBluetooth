@@ -11,7 +11,8 @@ import org.json.JSONObject;
 public class DataMessage {
     public enum MessageType {
         READ,
-        WRITE
+        WRITE,
+        NOTIFY
     }
     public MessageType type;
     public String uuid;

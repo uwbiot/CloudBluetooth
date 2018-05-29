@@ -17,4 +17,8 @@ public class BLEActionFactory {
         return new WriteAction(characteristic, requestId, macAddress);
     }
 
+    public static BLEAction getNotifyAction(BluetoothGattCharacteristic characteristic,
+                                            String requestId, String macAddress) {
+        return new NotifyAction(characteristic, requestId, macAddress);
+    }
 }

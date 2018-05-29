@@ -75,6 +75,21 @@ public class Messaging {
         return object.toString();
     }
 
+    public static String writeNotifyDataJSON(GATTMessageType type, String value,
+                                             String uuid, String macAddress) {
+        JSONObject object = new JSONObject();
+        try {
+            object.put("type", type);
+            object.put("value", value);
+            object.put("uuid", uuid);
+            object.put("macAddress", macAddress);
+            object.put("agentID", AndroidDeviceUuid.getUuid());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return object.toString();
+    }
+
     public static String writeServiceJSON(GATTMessageType type, String value,
                                           String macAddress, String requestId) {
         JSONObject object = new JSONObject();

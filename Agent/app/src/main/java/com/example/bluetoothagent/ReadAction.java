@@ -23,7 +23,7 @@ public class ReadAction implements BLEAction {
 
     @Override
     public void execute(HashMap<String, BluetoothGatt> gattHashMap) {
-        if(gattHashMap.containsKey(this.macAddress)) {
+        if (gattHashMap.containsKey(this.macAddress)) {
             gattHashMap.get(this.macAddress).readCharacteristic(characteristic);
         }
     }
